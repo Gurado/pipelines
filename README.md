@@ -1,4 +1,4 @@
 pipelines
 =========
 
-awesome bioinformatic pipelines to be used on the cluster 
+awesome bioinformatic pipelines to be used on a linux cluster 
