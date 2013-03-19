@@ -44,7 +44,7 @@ do
 	1) DO_TRANSFERDATA="TRUE";;
 	2) DO_CONVERTBAM2BEDGRAPH="TRUE";;
 	3) DO_GENERATEARCHIVE="TRUE";;
-	4) DO_GENERATEARCHIVE="TRUE";;
+	4) DO_TRAINSEGWAY="TRUE";;
 	5) DO_PREDICTSEGWAY="TRUE";;
 	6) DO_EVALUATE="TRUE";;
         a) ARMED="TRUE";;
@@ -73,12 +73,13 @@ SEGWAY_DATA=${TARGETDIR}data/
 SEGWAY_BIN=${TARGETDIR}bin/
 SEGWAY_QOUT=${TARGETDIR}qout/
 SEGWAY_RESULT=${TARGETDIR}result/
-SEGWAY_TRAIN=${SEGWAY_RESULT}train-${EXPERIMENT}/
-SEGWAY_PREDICT=${SEGWAY_RESULT}predict-${EXPERIMENT}/
+SEGWAY_TRAIN=${SEGWAY_RESULT}train-${EXPERIMENT}
+SEGWAY_PREDICT=${SEGWAY_RESULT}predict-${EXPERIMENT}
 
 # some housekeeping
 mkdir -p $SEGWAY_DATA $SEGWAY_BIN $SEGWAY_QOUT $SEGWAY_RESULT
-
+cp ${REGIONS} ${SEGWAY_DATA}
+TRAIN_REGIONS=${SEGWAY_DATA}$(basename ${REGIONS})
 
 ##
 ## collect the data (tracks) from gagri
@@ -175,9 +176,8 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         echo "[ -f ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out" >> ${SEGWAY_BIN}4_train.sh
         echo "[ -d ${SEGWAY_TRAIN} ] && rm -r ${SEGWAY_TRAIN}" >> ${SEGWAY_BIN}4_train.sh
 
-        echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
         OPTIONS="--include-coords=${TRAIN_REGIONS} --num-labels=${LABELS} --num-instances=${INSTANCES} ${SPECIAL}"
-        echo "segway $OPTIONS \\">> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh 
+        echo "segway $OPTIONS \\"> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh 
 
         # add the --track <ID> sections
         for f in $(ls $SEGWAY_DATA/*.bedgraph.gz ); do
@@ -186,10 +186,9 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         echo "--track "${arrIN[0]}" \\" >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
         done
         echo "train ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN}" >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
-        echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
+
         chmod 777 ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
-        # submit
-        #qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}/sgtrn4M${EXPERIMENT}.out -N sgtrn4M${EXPERIMENT} ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh
+        #echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}/sgtrn4M${EXPERIMENT}.out -N sgtrn4M${EXPERIMENT} ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}4_train.sh
         echo "${SEGWAY_BIN}segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}4_train.sh
 	chmod 777  ${SEGWAY_BIN}4_train.sh
 

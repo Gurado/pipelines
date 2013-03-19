@@ -21,11 +21,10 @@ ANNOTATION=/home/fabbus/data/gencode_release_15/gencode.v15.annotation.level_1_2
 #ANNOTATION_SOURCE=ftp://ftp.sanger.ac.uk/pub/gencode/release_15/gencode.v15.annotation.gtf.gz
 
 ## Segway parameters
-LABELS=20
-#LABELS=5
+LABELS=5
 #REGIONSOURCE=http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/referenceSequences/encodePilotRegions.hg19.bed
 REGIONS="/home/fabbus/data/encodePilotRegions.hg19.bed"
 SPECIAL="--clobber"
 INSTANCES=3
-TRAIN_REGIONS="${SEGWAY_DATA}encodePilotRegions.hg19.bed"
+
 
