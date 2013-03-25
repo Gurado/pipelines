@@ -32,6 +32,7 @@ DO_GENERATEARCHIVE=""
 DO_TRAINSEGWAY=""
 DO_PREDICTSEGWAY=""
 DO_EVALUATE=""
+CLOBBER=""
 
 ARMED="FALSE"
 OVERWRITEALL="FALSE"
@@ -57,7 +58,12 @@ done
 
 shift $(($OPTIND-1))
 CONFIG=$1
-source ./${CONFIG}
+
+source ${CONFIG}
+
+if [ "$OVERWRITEALL" = "TRUE" ];then
+	CLOBBER="--clobber "
+fi 
 
 if [ -d ${TARGETDIR} ]; then
 	echo "[WARN] target directory exists already"
@@ -148,6 +154,7 @@ if [ -n "$DO_GENERATEARCHIVE" ]; then
 	[ ! -f ${GENOME}.chrom.sizes ] && echo "fetchChromSizes ${GENOME} > ${SEGWAY_DATA}/${GENOME}.chrom.sizes" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 
 	# genomedata-load call
+	echo "echo '*** create genomedata archive;"  >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	echo "genomedata-load --sizes -s ${SEGWAY_DATA}/${GENOME}.chrom.sizes \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	# add the -t <ID>=<FILE> sections for all tracks
 
@@ -176,7 +183,8 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         echo "[ -f ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out" >> ${SEGWAY_BIN}4_train.sh
         echo "[ -d ${SEGWAY_TRAIN} ] && rm -r ${SEGWAY_TRAIN}" >> ${SEGWAY_BIN}4_train.sh
 
-        OPTIONS="--include-coords=${TRAIN_REGIONS} --num-labels=${LABELS} --num-instances=${INSTANCES} ${SPECIAL}"
+        OPTIONS="--include-coords=${TRAIN_REGIONS} --num-labels=${LABELS} --num-instances=${INSTANCES} ${CLOBBER} ${SPECIAL}"
+	echo "echo '*** train segway'" >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
         echo "segway $OPTIONS \\"> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh 
 
         # add the --track <ID> sections
@@ -198,7 +206,7 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
 fi
 
 ##
-## predict usign a trained Seqway model
+## predict using a trained Seqway model
 ##
 if [ -n "$DO_PREDICTSEGWAY" ]; then
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}5_predict.sh
@@ -211,8 +219,9 @@ if [ -n "$DO_PREDICTSEGWAY" ]; then
         echo 'export TEMP=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         echo 'export TMPDIR=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
 
-        # segway call    
-        echo "segway --num-labels=${LABELS} \\">> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
+        # segway calli
+	echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
+        echo "segway --num-labels=${LABELS} ${CLOBBER} \\">> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         # add the --track <ID> sections
         for f in $(ls ${SEGWAY_DATA}/*.bedgraph.gz ); do
             b=$(basename $f)
@@ -239,23 +248,23 @@ if [ -n "$DO_EVALUATE" ]; then
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}6_evaluate.sh
         echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
         #preprocess file
-        if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}segway.bed.gz.pkl.gz ]; then
-                echo "echo '----------preprocess'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
-                echo "segtools-preprocess ${SEGWAY_PREDICT}segway.bed.gz" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+        if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ]; then
+                echo "echo '*** preprocess'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
+                echo "segtools-preprocess ${SEGWAY_PREDICT}/segway.bed.gz" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         fi
         
-        echo "echo '----------lengthdist'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
-        echo "segtools-length-distribution ${SEGWAY_PREDICT}segway.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}length-dist/ --clobber" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+        echo "echo '*** lengthdist'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "segtools-length-distribution ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}length-dist/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
-        echo "echo '----------geneagg'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
-        echo "segtools-aggregation ${SEGWAY_PREDICT}segway.bed.gz.pkl.gz ${SEGWAY_DATA}${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}gencode-agg/ --clobber" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+        echo "echo '*** geneagg'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "segtools-aggregation ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}gencode-agg/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
         echo "echo '----------gmtkparam'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
-        echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}params/params.params --outdir=${SEGWAY_RESULT}gtmk-param/ --clobber" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+        echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}/params/params.params --outdir=${SEGWAY_RESULT}gtmk-param/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
         echo "echo '----------html'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "cd ${SEGWAY_RESULT}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
-        echo "segtools-html-report -o segtools.html ${SEGWAY_PREDICT}segway.bed.gz.pkl.gz --clobber" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+        echo "segtools-html-report -L ${SEGWAY_PREDICT}/segway.layered.bed.gz --results-dir=${SEGWAY_RESULT} -o segtools.html ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         echo "sed 's|${SEGWAY_RESULT}||g' segtools.html > segtools.html2" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         echo "mv segtools.html2 segtools.html" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         echo "cd $(pwd)" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 

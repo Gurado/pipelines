@@ -24,7 +24,7 @@ ANNOTATION=/home/fabbus/data/gencode_release_15/gencode.v15.annotation.level_1_2
 LABELS=5
 #REGIONSOURCE=http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/referenceSequences/encodePilotRegions.hg19.bed
 REGIONS="/home/fabbus/data/encodePilotRegions.hg19.bed"
-SPECIAL="--clobber"
+SPECIAL=""
 INSTANCES=3
 
 
