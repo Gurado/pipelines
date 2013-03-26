@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-USAGEMSG="usage: $(basename $0) -g gagriChipSeqDir -w workingDir -N jobname -d -f -v CHIP INPUT
+USAGEMSG="usage: $(basename $0) -g gagriChipSeqDir -w workingDir -N jobname -p 'gsub parameters' -d -f -v CHIP INPUT
 
 Starts the Normalization for ChIP-Seq (NCBI) pipeline.
 
@@ -14,7 +14,8 @@ Requirements (in PATH environment or specified):
 * -g data source directory - directory on gagri that points to the ChIP-seq data folders
 * -w working directory - directory to put all the data, scripts, results
 * -n NCIS source - source of the NCIS R script
-* -N job name - give this job a name of your choice
+* -N job name - give this job a name of your choicea
+* -p parameters - cluster job parameters to use when submitting via qsub
 * -f force - overwrite existing results
 * -d dry - write scripts but dont trigger R job
 * -v - print progress information (verbose).
@@ -36,13 +37,15 @@ FORCE="FALSE"
 NCORES=1
 VERBOSE="--quiet"
 JOBNAME=""
+JOBPARAMS="-l h_vmem=25G,virtual_free=15G"
 
-while getopts "g:w:n:N:dfv" opt;
+while getopts "g:w:n:N:p:dfv" opt;
 do
         case ${opt} in
         g) GAGRI="$OPTARG";;
         n) NCIS="$OPTARG";;
 	N) JOBNAME="$OPTARG";;
+	p) JOBPARAMS="$OPTARG";;
         w) WORKINGDIR="$OPTARG";;
 	d) DRYRUN="TRUE";;
 	f) FORCE="TRUE";;
@@ -145,11 +148,11 @@ echo "write.table(res, file='${RESULT}${CHIP}-${CONTROL}.txt', sep='\t')" >> ${B
 
 if [ ${DRYRUN} = "TRUE" ]; then
 
-   echo "qsub -pe smp $NCORES -m e -o ${LOG} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet '${BIN}${CHIP}-${CONTROL}.R'" >> ${LOG}/${JOBNAME}.log
+   echo "qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet '${BIN}${CHIP}-${CONTROL}.R'" >> ${LOG}/${JOBNAME}.log
    tail -n 1 ${LOG}/${JOBNAME}.log
 
 else
    echo "** submit job" >> ${LOG}/${JOBNAME}.log
-   qsub -pe smp $NCORES -m e -o ${LOG} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet "${BIN}${CHIP}-${CONTROL}.R"
+   qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS}  -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet "${BIN}${CHIP}-${CONTROL}.R"
 fi
 

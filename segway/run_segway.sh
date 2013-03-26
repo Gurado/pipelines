@@ -17,6 +17,8 @@ Requirements (modules):
 * -4 step 4 - train the segway model
 * -5 step 5 - predict using the segway model
 * -6 step 6 - evaluate the output using segtools
+* -U umapDir - unique mapping directory
+* -S seqDir - sequence directory containing all chromosomes separately
 * -f force - overwrite existing results
 * -a armed - trigger the jobs after writing the scripts
 * -v - print progress information (verbose).
@@ -33,13 +35,15 @@ DO_TRAINSEGWAY=""
 DO_PREDICTSEGWAY=""
 DO_EVALUATE=""
 CLOBBER=""
+UMAPDIR="/share/ClusterShare/biodata/contrib/fabbus/umap/hg19_male/globalmap_k20tok54/"
+SEQDIR="/share/ClusterShare/biodata/contrib/fabbus/encodeDCC/maleByChrom/"
 
 ARMED="FALSE"
 OVERWRITEALL="FALSE"
 
 [ $# -lt 1 ] && echo "$USAGEMSG" >&2 && exit 1
 
-while getopts "123456afv" opt;
+while getopts "123456U:S:afv" opt;
 do
         case ${opt} in
 	1) DO_TRANSFERDATA="TRUE";;
@@ -48,6 +52,8 @@ do
 	4) DO_TRAINSEGWAY="TRUE";;
 	5) DO_PREDICTSEGWAY="TRUE";;
 	6) DO_EVALUATE="TRUE";;
+	U) UMAPDIR="$OPTARG";;
+	S) SEQDIR="$OPTARG";;
         a) ARMED="TRUE";;
         f) OVERWRITEALL="TRUE";;
         v) VERBOSE="--verbose";;
@@ -98,6 +104,7 @@ if [ -n "$DO_TRANSFERDATA" ];  then
 	        echo "echo 'datafile ${F}'" >> ${SEGWAY_BIN}1_cdata.sh
         	echo "smbclient \\\\\\\\gagri\\\\GRIW -A ~/.smbclient -c 'cd ${FILES_SOURCE}/${F}; get ${F}.bam' && mv ${F}.bam ${SEGWAY_DATA}" >> ${SEGWAY_BIN}1_cdata.sh
 	        echo "smbclient \\\\\\\\gagri\\\\GRIW -A ~/.smbclient -c 'cd ${FILES_SOURCE}/${F}; get ${F}.bam.bai' && mv ${F}.bam.bai ${SEGWAY_DATA}" >> ${SEGWAY_BIN}1_cdata.sh
+		echo "smbclient \\\\\\\\gagri\\\\GRIW -A ~/.smbclient -c 'cd ${FILES_SOURCE}/${F}; get ${F}.homer.log' && mv ${F}.homer.log ${SEGWAY_DATA}" >> ${SEGWAY_BIN}1_cdata.sh
 
 	done
 
@@ -111,25 +118,34 @@ fi
 ## transform the bam data into bedgraph
 ##
 if [ -n "$DO_CONVERTBAM2BEDGRAPH" ]; then
-	echo "echo 'get chromosome sizes for ${GENOME}'" > ${SEGWAY_BIN}2_tdata.sh
+	if [ ! -d ${SEQDIR} ] || [ ! -d ${UMAPDIR} ]; then
+		echo "sequence dir or umap dir is missing/invalid"
+		echo "seqDir: ${SEQDIR}"
+		echo "umapDIR:${UMAPDIR}"
+		exit 1
+	fi
+	echo "module load fabbus/wiggler/2.0" > ${SEGWAY_BIN}2_tdata.sh
+	echo "echo 'get chromosome sizes for ${GENOME}'" >> ${SEGWAY_BIN}2_tdata.sh
         echo "fetchChromSizes ${GENOME} > ${SEGWAY_DATA}/${GENOME}.chrom.sizes" >>  ${SEGWAY_BIN}2_tdata.sh
 
-	for F in `ls ${SEGWAY_DATA}/*.bam`; do
+	for F in `ls ${SEGWAY_DATA}*.bam`; do
         	FN=${F##*/}
 	        FB=${FN%.*}
 
-        	if [ ! -f ${SEGWAY_DATA}${FB}.bedgraph.gz ]; then
+        	if [ ! -f ${SEGWAY_DATA}${FB}.bedgraph.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
                 	[ -f ${SEGWAY_QOUT}td4${FB}.out ] && rm ${SEGWAY_QOUT}td4${FB}.out
-
-	                echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}tdata${FB}.sh
-                	echo 'echo convert ${FB}.bam to bedGraph' >>  ${SEGWAY_BIN}tdata${FB}.sh
-        	        echo "genomeCoverageBed -split -bg -ibam ${F} -g ${SEGWAY_DATA}/${GENOME}.chrom.sizes | gzip > ${SEGWAY_DATA}/${FB}.bedgraph.gz" >> ${SEGWAY_BIN}tdata${FB}.sh
-
+			echo '#!/bin/bash' > ${SEGWAY_BIN}tdata${FB}.sh
+	                echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}tdata${FB}.sh
+                	echo "echo convert ${FB}.bam to bedGraph using wiggler" >>  ${SEGWAY_BIN}tdata${FB}.sh
+#        	        echo "genomeCoverageBed -split -bg -ibam ${F} -g ${SEGWAY_DATA}/${GENOME}.chrom.sizes | gzip > ${SEGWAY_DATA}/${FB}.bedgraph.gz" >> ${SEGWAY_BIN}tdata${FB}.sh	
+			# replaced with wiggler
+			FRAGSIZE=`grep "Fragment Length Estimate" ${F%.*}.homer.log | awk '{print $4}'`
+			echo "align2rawsignal -of=wig -i=${F} -s=${SEQDIR} -u=${UMAPDIR} -v=${SEGWAY_QOUT}wiggler-${FN}.log -l=${FRAGSIZE} -k=tukey -w=${WIGGLER_SMOOTHING} | gzip > ${SEGWAY_DATA}${FB}.wig.gz" >> ${SEGWAY_BIN}tdata${FB}.sh 
 	                echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}tdata${FB}.sh
 			chmod 777 ${SEGWAY_BIN}tdata${FB}.sh
 
         	        # submit
-                	echo "qsub -V -cwd -b y -j y -o ${SEGWAY_QOUT}/td4${FB}.out -N td4${FB} ${SEGWAY_BIN}/tdata${FB}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
+                	echo "qsub -V -cwd -l h_rt=01:00:00 -j y -S /bin/bash -o ${SEGWAY_QOUT}td4${FB}.out -N td4${FB} ${SEGWAY_BIN}tdata${FB}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
 	        fi
 	done
 
@@ -250,19 +266,19 @@ if [ -n "$DO_EVALUATE" ]; then
         #preprocess file
         if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ]; then
                 echo "echo '*** preprocess'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
-                echo "segtools-preprocess ${SEGWAY_PREDICT}/segway.bed.gz" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
+                echo "segtools-preprocess ${CLOBBER} ${SEGWAY_PREDICT}/segway.bed.gz" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         fi
         
-        echo "echo '*** lengthdist'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "echo '*** length disttribution analysis'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "segtools-length-distribution ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}length-dist/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
-        echo "echo '*** geneagg'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "echo '*** gene aggregation analysis'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "segtools-aggregation ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}gencode-agg/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
-        echo "echo '----------gmtkparam'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "echo '*** gmtk parameter generation'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}/params/params.params --outdir=${SEGWAY_RESULT}gtmk-param/ ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         
-        echo "echo '----------html'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
+        echo "echo '*** html report generation'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "cd ${SEGWAY_RESULT}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         echo "segtools-html-report -L ${SEGWAY_PREDICT}/segway.layered.bed.gz --results-dir=${SEGWAY_RESULT} -o segtools.html ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${CLOBBER}" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 
         echo "sed 's|${SEGWAY_RESULT}||g' segtools.html > segtools.html2" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh 

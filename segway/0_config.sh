@@ -17,14 +17,16 @@ GENOME="hg19"
 GENOMESEQ=/share/ClusterShare/biodata/galaxy_main/hg19/seq/${GENOME}.fa
 
 # annotation data
-ANNOTATION=/home/fabbus/data/gencode_release_15/gencode.v15.annotation.level_1_2.gtf
+ANNOTATION=/share/ClusterShare/software/contrib/Cancer-Epigenetics/Annotation/hg19/transcript/gencode.v14/gencode.v14.annotation.gtf
 #ANNOTATION_SOURCE=ftp://ftp.sanger.ac.uk/pub/gencode/release_15/gencode.v15.annotation.gtf.gz
 
 ## Segway parameters
 LABELS=5
 #REGIONSOURCE=http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/referenceSequences/encodePilotRegions.hg19.bed
-REGIONS="/home/fabbus/data/encodePilotRegions.hg19.bed"
+REGIONS=/share/ClusterShare/software/contrib/Cancer-Epigenetics/Annotation/hg19/Encode/encodePilotRegions.hg19.bed
 SPECIAL=""
 INSTANCES=3
 
-
+## Wiggler
+# Wiggler smoothing for histone marks
+WIGGLER_SMOOTHING=300 
