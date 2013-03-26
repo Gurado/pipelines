@@ -133,19 +133,20 @@ if [ -n "$DO_CONVERTBAM2BEDGRAPH" ]; then
 	        FB=${FN%.*}
 
         	if [ ! -f ${SEGWAY_DATA}${FB}.bedgraph.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
-                	[ -f ${SEGWAY_QOUT}td4${FB}.out ] && rm ${SEGWAY_QOUT}td4${FB}.out
+                	[ -f ${SEGWAY_QOUT}TrDa-${FB}.out ] && rm ${SEGWAY_QOUT}TrDa-${FB}.out
 			echo '#!/bin/bash' > ${SEGWAY_BIN}tdata${FB}.sh
 	                echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}tdata${FB}.sh
                 	echo "echo convert ${FB}.bam to bedGraph using wiggler" >>  ${SEGWAY_BIN}tdata${FB}.sh
 #        	        echo "genomeCoverageBed -split -bg -ibam ${F} -g ${SEGWAY_DATA}/${GENOME}.chrom.sizes | gzip > ${SEGWAY_DATA}/${FB}.bedgraph.gz" >> ${SEGWAY_BIN}tdata${FB}.sh	
 			# replaced with wiggler
 			FRAGSIZE=`grep "Fragment Length Estimate" ${F%.*}.homer.log | awk '{print $4}'`
-			echo "align2rawsignal -of=wig -i=${F} -s=${SEQDIR} -u=${UMAPDIR} -v=${SEGWAY_QOUT}wiggler-${FN}.log -l=${FRAGSIZE} -k=tukey -w=${WIGGLER_SMOOTHING} | gzip > ${SEGWAY_DATA}${FB}.wig.gz" >> ${SEGWAY_BIN}tdata${FB}.sh 
+			echo "align2rawsignal -of=wig -i=${F} -s=${SEQDIR} -u=${UMAPDIR} -v=${SEGWAY_QOUT}wiggler-${FN}.log -l=${FRAGSIZE} -k=tukey -w=${WIGGLER_SMOOTHING} -o=${SEGWAY_DATA}${FB}.wig" >> ${SEGWAY_BIN}tdata${FB}.sh 
+			echo "gzip ${SEGWAY_DATA}${FB}.wig" >> ${SEGWAY_BIN}tdata${FB}.sh  
 	                echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}tdata${FB}.sh
 			chmod 777 ${SEGWAY_BIN}tdata${FB}.sh
 
         	        # submit
-                	echo "qsub -V -cwd -l h_rt=01:00:00 -j y -S /bin/bash -o ${SEGWAY_QOUT}td4${FB}.out -N td4${FB} ${SEGWAY_BIN}tdata${FB}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
+                	echo "qsub -V -cwd -l h_rt=01:00:00 -j y -M `whoami`@garvan.unsw.edu.au -S /bin/bash -o ${SEGWAY_QOUT}TrDa-${FB}.out -N TrDa-${FB} ${SEGWAY_BIN}tdata${FB}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
 	        fi
 	done
 
@@ -162,28 +163,28 @@ fi
 if [ -n "$DO_GENERATEARCHIVE" ]; then
 	## load module
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}3_gdata.sh
-	echo "[ -f ${SEGWAY_QOUT}/GnDt4M${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}/GnDt4M${EXPERIMENT}.out" >> ${SEGWAY_BIN}3_gdata.sh
+	echo "[ -f ${SEGWAY_QOUT}/GnDt-${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}/GnDt-${EXPERIMENT}.out" >> ${SEGWAY_BIN}3_gdata.sh
 
 
 	echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	echo 'echo get chromosome sizes for ${GENOME}' >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
-	[ ! -f ${GENOME}.chrom.sizes ] && echo "fetchChromSizes ${GENOME} > ${SEGWAY_DATA}/${GENOME}.chrom.sizes" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
+	[ ! -f ${GENOME}.chrom.sizes ] && echo "fetchChromSizes ${GENOME} > ${SEGWAY_DATA}${GENOME}.chrom.sizes" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 
 	# genomedata-load call
-	echo "echo '*** create genomedata archive;"  >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
-	echo "genomedata-load --sizes -s ${SEGWAY_DATA}/${GENOME}.chrom.sizes \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
+	echo "echo '*** create genomedata archive'"  >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
+	echo "genomedata-load --sizes -s ${SEGWAY_DATA}${GENOME}.chrom.sizes \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	# add the -t <ID>=<FILE> sections for all tracks
 
-	for f in $(ls $SEGWAY_DATA/*.gz ); do
+	for f in $(ls ${SEGWAY_DATA}*.gz ); do
 	        b=$(basename $f)
         	arrIN=(${b//./ })
         echo "-t "${arrIN[0]}=$f" \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	done
-	echo "${SEGWAY_DATA}/${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
+	echo "${SEGWAY_DATA}${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	chmod 777 ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	#submit
-	echo "qsub -pe smp 2 -V -cwd -b y -j y -o ${SEGWAY_QOUT}/GnDt4M${EXPERIMENT}.out -N GnDt4M${EXPERIMENT} ${SEGWAY_BIN}/gdata${EXPERIMENT}.sh" >> ${SEGWAY_BIN}3_gdata.sh
+	echo "qsub -V -cwd -b y -j y -M `whoami`@garvan.unsw.edu.au -o ${SEGWAY_QOUT}GnDt-${EXPERIMENT}.out -N GnDt-${EXPERIMENT} ${SEGWAY_BIN}gdata${EXPERIMENT}.sh" >> ${SEGWAY_BIN}3_gdata.sh
 	chmod 777  ${SEGWAY_BIN}3_gdata.sh
 
 	if [ $ARMED = "TRUE" ]; then
@@ -196,7 +197,7 @@ fi
 ##
 if [ -n "$DO_TRAINSEGWAY" ]; then
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}4_train.sh
-        echo "[ -f ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}sgtrn4M${EXPERIMENT}.out" >> ${SEGWAY_BIN}4_train.sh
+        echo "[ -f ${SEGWAY_QOUT}SgTrn-${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}SgTrn-${EXPERIMENT}.out" >> ${SEGWAY_BIN}4_train.sh
         echo "[ -d ${SEGWAY_TRAIN} ] && rm -r ${SEGWAY_TRAIN}" >> ${SEGWAY_BIN}4_train.sh
 
         OPTIONS="--include-coords=${TRAIN_REGIONS} --num-labels=${LABELS} --num-instances=${INSTANCES} ${CLOBBER} ${SPECIAL}"
@@ -212,7 +213,7 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         echo "train ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN}" >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
 
         chmod 777 ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
-        #echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}/sgtrn4M${EXPERIMENT}.out -N sgtrn4M${EXPERIMENT} ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}4_train.sh
+        #echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgTrn0${EXPERIMENT}.out -N SgTrn-${EXPERIMENT} ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}4_train.sh
         echo "${SEGWAY_BIN}segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}4_train.sh
 	chmod 777  ${SEGWAY_BIN}4_train.sh
 
@@ -226,14 +227,14 @@ fi
 ##
 if [ -n "$DO_PREDICTSEGWAY" ]; then
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}5_predict.sh
-        echo "[ -f ${SEGWAY_QOUT}/sgprd4M${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}sgprd4M${EXPERIMENT}.out" >> ${SEGWAY_BIN}5_predict.sh
+        echo "[ -f ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out" >> ${SEGWAY_BIN}5_predict.sh
         echo "[ -d ${SEGWAY_PREDICT} ] && rm -r ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}5_predict.sh
 
         echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
 
-        echo 'export TMP=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
-        echo 'export TEMP=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
-        echo 'export TMPDIR=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
+#        echo 'export TMP=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
+#        echo 'export TEMP=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
+#        echo 'export TMPDIR=/tmp/' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
 
         # segway calli
 	echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
@@ -248,7 +249,7 @@ if [ -n "$DO_PREDICTSEGWAY" ]; then
         echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         chmod 777 ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         # submit
-#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}sgprd4M${EXPERIMENT}.out -N sgprd4M${EXPERIMENT} ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh"   
+#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out -N SgPrd-${EXPERIMENT} ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh"   
         echo "${SEGWAY_BIN}segpredict${EXPERIMENT}.sh" >> ${SEGWAY_BIN}5_predict.sh
 	chmod 777 ${SEGWAY_BIN}5_predict.sh
 
@@ -262,7 +263,7 @@ fi
 ##
 if [ -n "$DO_EVALUATE" ]; then
 	echo "module load fabbus/segway/1.1.0" > ${SEGWAY_BIN}6_evaluate.sh
-        echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
+        echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
         #preprocess file
         if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ]; then
                 echo "echo '*** preprocess'" >> ${SEGWAY_BIN}segeval${EXPERIMENT}.sh     
@@ -287,7 +288,7 @@ if [ -n "$DO_EVALUATE" ]; then
 
         chmod 777 ${SEGWAY_BIN}segeval${EXPERIMENT}.sh
 
-        echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}sgevl4M${EXPERIMENT}.out -N sgevl4M${EXPERIMENT} ${SEGWAY_BIN}segeval${EXPERIMENT}.sh" >> ${SEGWAY_BIN}6_evaluate.sh
+        echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgEva-${EXPERIMENT}.out -N SgEva-${EXPERIMENT} ${SEGWAY_BIN}segeval${EXPERIMENT}.sh" >> ${SEGWAY_BIN}6_evaluate.sh
 
 	chmod 777 ${SEGWAY_BIN}6_evaluate.sh
         if [ $ARMED = "TRUE" ]; then
