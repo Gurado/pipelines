@@ -143,19 +143,19 @@ if [ -n "$DO_CONVERTBAM2BEDGRAPH" ]; then
 #        	FN=${F##*/}
 #	        FB=${FN%.*}
 
-        	if [ ! -f ${SEGWAY_DATA}${FB}.bedgraph.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
+        	if [ ! -f ${SEGWAY_DATA}${FB}.bedgraph ] || [ "$OVERWRITEALL" = "TRUE" ]; then
                 	[ -f ${SEGWAY_QOUT}TrDa-${REPNAMES}.out ] && rm ${SEGWAY_QOUT}TrDa-${REPNAMES}.out
 			echo '#!/bin/bash' > ${SEGWAY_BIN}tdata${REPNAMES}.sh
 	                echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}tdata${REPNAMES}.sh
                 	echo "echo convert ${REPNAMES} to bedGraph using wiggler" >>  ${SEGWAY_BIN}tdata${REPNAMES}.sh
 			# wiggler
-			echo "align2rawsignal -of=bg ${INPUTS} ${FRAGMENTS} -s=${SEQDIR} -u=${WIGGLER_UMAPDIR} -v=${SEGWAY_QOUT}wiggler-${REPNAMES}.log -k=tukey -w=${WIGGLER_SMOOTHING} | gzip > ${SEGWAY_DATA}${REPNAMES}.bg.gz" >> ${SEGWAY_BIN}tdata${REPNAMES}.sh 
-#			echo "gzip ${SEGWAY_DATA}${FB}.bg" >> ${SEGWAY_BIN}tdata${REPNAMES}.sh  
+			echo "align2rawsignal -of=bg ${INPUTS} ${FRAGMENTS} -s=${SEQDIR} -u=${WIGGLER_UMAPDIR} -v=${SEGWAY_QOUT}wiggler-${REPNAMES}.log -k=tukey -w=${WIGGLER_SMOOTHING} -o=${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}tdata${REPNAMES}.sh 
+			echo "gzip ${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}tdata${REPNAMES}.sh  
 	                echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}tdata${REPNAMES}.sh
 			chmod 777 ${SEGWAY_BIN}tdata${REPNAMES}.sh
 
         	        # submit
-                	echo "qsub -V -cwd -l h_rt=01:00:00 -j y -M `whoami`@garvan.unsw.edu.au -S /bin/bash -o ${SEGWAY_QOUT}TrDa-${REPNAMES}.out -N TrDa-${REPNAMES} ${SEGWAY_BIN}tdata${REPNAMES}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
+                	echo "qsub -V -cwd -l h_rt=01:00:00 -j y -m e -M `whoami`@garvan.unsw.edu.au -S /bin/bash -o ${SEGWAY_QOUT}TrDa-${REPNAMES}.out -N TrDa-${REPNAMES} ${SEGWAY_BIN}tdata${REPNAMES}.sh" >>  ${SEGWAY_BIN}2_tdata.sh
 	        fi
 	done
 
@@ -185,7 +185,7 @@ if [ -n "$DO_GENERATEARCHIVE" ]; then
 	echo "echo '*** create genomedata archive'"  >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	echo "genomedata-load --sizes -s ${CHROMSIZES} \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
 	# add the -t <ID>=<FILE> sections for all tracks
-	for f in $(ls ${SEGWAY_DATA}*.bg.gz ); do
+	for f in $(ls ${SEGWAY_DATA}*.bg ); do
 	        b=$(basename $f)
         	arrIN=(${b//./ })
         echo "-t "${arrIN[0]}=$f" \\" >> ${SEGWAY_BIN}gdata${EXPERIMENT}.sh
@@ -215,7 +215,7 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         echo "segway $OPTIONS \\"> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh 
 
         # add the --track <ID> sections
-        for f in $(ls $SEGWAY_DATA/*.bedgraph.gz ); do
+        for f in $(ls $SEGWAY_DATA/*.bg ); do
                 b=$(basename $f)
                 arrIN=(${b//./ })
         echo "--track "${arrIN[0]}" \\" >> ${SEGWAY_BIN}segtrain${EXPERIMENT}.sh
@@ -250,7 +250,7 @@ if [ -n "$DO_PREDICTSEGWAY" ]; then
 	echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         echo "segway --num-labels=${LABELS} ${CLOBBER} \\">> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
         # add the --track <ID> sections
-        for f in $(ls ${SEGWAY_DATA}/*.bedgraph.gz ); do
+        for f in $(ls ${SEGWAY_DATA}/*.bg ); do
             b=$(basename $f)
             arrIN=(${b//./ })
             echo "--track "${arrIN[0]}" \\" >> ${SEGWAY_BIN}segpredict${EXPERIMENT}.sh
