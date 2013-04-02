@@ -84,7 +84,7 @@ mkdir -p ${DATA} ${BIN} ${RESULT} ${LOG}
 ## Check if results exists already or existing results are to be overwritten
 ##
 
-if [ ${FORCE} = "FALSE" ] && [ -f ${RESULT}${CHIP}-${CONTROL}.txt ]; then
+if [ ${FORCE} = "FALSE" ] && [ -f ${RESULT}${CHIP}-${CONTROL}.IPstrength ]; then
    echo "[NOTE] Results already exist: ${RESULT}${CHIP}_${CONTROL}.RData" >> ${LOG}/${JOBNAME}.log
    [ ${VERBOSE} = "--verbose" ] && tail -n 1 ${LOG}/${JOBNAME}.log
    exit 0
@@ -143,16 +143,19 @@ fi
 echo "** write shell script" >> ${LOG}/${JOBNAME}.log
 echo "#!/bin/sh -e" > ${BIN}/${CHIP}-${CONTROL}.sh
 
+## binData mode not crucial
 # echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.mat -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 # echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CONTROL} -o ${RESULT}/${CONTROL}.mat -f ${DATA}/${CONTROL}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
-echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}-IPstrength --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
-if [ -n "${EXPERIMENTID}" ]; then
-	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}-compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
-fi
+## spectrum and compENCODE modes buggy
 
-# echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}-spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#if [ -n "${EXPERIMENTID}" ]; then
+#	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#fi
+
+# echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 
 chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
