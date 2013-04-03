@@ -17,8 +17,6 @@ VERSION="0.0.1"
 
 CHIP=""
 CONTROL=""
-GAGRI=/Cancer-Epigenetics/Data/ClarkLab/Seq/ChIP-Seq/hg19/
-NCIS=/home/fabbus/pipelines/NCIS/NCIS.R
 
 while getopts "" opt;
 do
@@ -35,7 +33,7 @@ OUTPUT=$2
 [ ! -d ${SOURCE} ] && echo "INPUT directory does not exist: ${INPUT}" && exit 1
 mkdir -p ${OUTPUT}
 
-$echo "ChIP	Control	NCIS_BackgroundRatio	NCIS_Binsize	NCIS_SeqDepth	NCIS_Normalization	CHANCE_Enriched	CHANCE_Cumulative	CHANCE_Scaling	CHANCE_FDR" > ${OUTPUT}/ChIP-QC_aggregate.txt
+echo "ChIP	Control	CHANCE_BackgroundPercent	NCIS_BackgroundPercent	NCIS_Binsize	NCIS_SeqDepth	NCIS_Normalization	CHANCE_Enriched	CHANCE_Cumulative	CHANCE_Scaling	CHANCE_FDR	CHANCE_FDR_TFBS_NORMAL	CHANCE_FDR_HISTONE_NORMAL	CHANCE_FDR_HISTONE_NORMAL	CHANCE_FDR_HISTONE_CANCER" > ${OUTPUT}/ChIP-QC_aggregate.txt
 
 
 for line in $(ls -la ${SOURCE} | tail -n+4 | awk '{print $NF}' | awk -F\. '{print $1}' | sort -u ); do
@@ -45,26 +43,33 @@ for line in $(ls -la ${SOURCE} | tail -n+4 | awk '{print $NF}' | awk -F\. '{prin
 	echo  "$chip $input"
 
 	NCIS_BACKGROUNDRATIO=""
+	NCIS_BACKGROUNDPERCENT=""
 	NCIS_BINSIZE=""
 	NCIS_NORMALIZATION=""
 	NCIS_SEQDEPTH=""
 
 	CHANCE_FDR=""
+	CHANCE_FDR_TFBS_NORMAL=""
+	CHANCE_FDR_HISTONE_NORMAL=""
+	CHANCE_FDR_HISTONE_NORMAL=""
+	CHANCE_FDR_HISTONE_CANCER=""
 	CHANCE_SCALING=""
 	CHANCE_ENRICHED=""
 	CHANCE_CUMMULATIVE=""
+	CHANCE_BACKGROUNDPERCENT=""
 
-	if [ -f ${line}.txt ]; then
-		f=${line}.txt
+	if [ -f ${SOURCE}/${line}.txt ]; then
+		f=${SOURCE}/${line}.txt
 		NCIS_BACKGROUNDRATIO=$(tail -n 1 $f | awk '{print $5}')
+		NCIS_BACKGROUNDPERCENT=$(bc <<< ${NCIS_BACKGROUNDRATIO}*100)
 		NCIS_BINSIZE=$(tail -n 1 $f | awk '{print $3}')
 		NCIS_NORMALIZATION=$(tail -n 1 $f | awk '{print $2}')
 		NCIS_SEQDEPTH=$(tail -n 1 $f | awk '{print $4}')
 	fi
 
 
-	if [ -f ${line}.IPstrength ]; then
-		f=${line}.IPstrength
+	if [ -f ${SOURCE}/${line}.IPstrength ]; then
+		f=${SOURCE}/${line}.IPstrength
 	        CHANCE_FDR=$(cat $f | grep "^fdr," | awk -F\, '{print $2}')
 		CHANCE_FDR_TFBS_NORMAL=$(cat $f | grep "^tfbs_normal_fdr" | awk -F\, '{print $2}')
                 CHANCE_FDR_HISTONE_NORMAL=$(cat $f | grep "^tfbs_normal_fdr" | awk -F\, '{print $2}')
@@ -73,9 +78,10 @@ for line in $(ls -la ${SOURCE} | tail -n+4 | awk '{print $NF}' | awk -F\. '{prin
         	CHANCE_SCALING=$(cat $f | grep "input_scaling_factor" | awk -F\, '{print $2}')
 	        CHANCE_ENRICHED=$(cat $f | grep "percent_genome_enriched" | awk -F\, '{print $2}')
         	CHANCE_CUMMULATIVE=$(cat $f | grep "differential_percentage_enrichment" | awk -F\, '{print $2}')
+		CHANCE_BACKGROUNDPERCENT=$(bc <<< 100-${CHANCE_CUMMULATIVE})
 	fi
 
-	echo "${chip}	${input}	${NCIS_BACKGROUNDRATIO}	${NCIS_BINSIZE}	${NCIS_SEQDEPTH}	${NCIS_NORMALIZATION}	${CHANCE_ENRICHED}	${CHANCE_CUMMULATIVE}	${CHANCE_SCALING}	${CHANCE_FDR}	${CHANCE_FDR_TFBS_NORMAL}	${CHANCE_FDR_HISTONE_NORMAL}	${CHANCE_FDR_TFBS_CANCER}	${CHANCE_FDR_HISTONE_CANCER}" >> ${OUTPUT}/ChIP-QC_aggregate.txt
+	echo "${chip}	${input}	${CHANCE_BACKGROUNDPERCENT}	${NCIS_BACKGROUNDPERCENT}	${NCIS_BINSIZE}	${NCIS_SEQDEPTH}	${NCIS_NORMALIZATION}	${CHANCE_ENRICHED}	${CHANCE_CUMMULATIVE}	${CHANCE_SCALING}	${CHANCE_FDR}	${CHANCE_FDR_TFBS_NORMAL}	${CHANCE_FDR_HISTONE_NORMAL}	${CHANCE_FDR_TFBS_CANCER}	${CHANCE_FDR_HISTONE_CANCER}" >> ${OUTPUT}/ChIP-QC_aggregate.txt
 done
 
 exit 1
