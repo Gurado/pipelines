@@ -22,7 +22,7 @@ Requirements (in PATH environment or specified):
 "
 
 
-DIR=`dirname $0`
+DIR=$(dirname $0)
 VERSION="0.0.1"
 
 [ $# -lt 2 ] && echo "$USAGEMSG" >&2 && exit 1
@@ -30,7 +30,7 @@ VERSION="0.0.1"
 CHIP=""
 CONTROL=""
 GAGRI=/Cancer-Epigenetics/Data/ClarkLab/Seq/ChIP-Seq/hg19/
-NCIS=/home/fabbus/pipelines/NCIS/NCIS.R
+NCIS=${DIR}/NCIS.R
 WORKINGDIR=$PWD
 DRYRUN="FALSE"
 FORCE="FALSE"
