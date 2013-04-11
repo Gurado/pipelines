@@ -151,11 +151,11 @@ echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}.I
 
 ## spectrum and compENCODE modes buggy
 
-#if [ -n "${EXPERIMENTID}" ]; then
-#	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
-#fi
+if [ -n "${EXPERIMENTID}" ]; then
+	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+fi
 
-# echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 
 chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
