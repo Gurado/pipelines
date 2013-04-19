@@ -1,4 +1,4 @@
-import os
+import os, sys
 import logging
 from hiclib import mapping
 from mirnylib import h5dict, genome
@@ -14,10 +14,10 @@ from hiclib import binnedData
 def main():
 	global options
 	global args
-	usage = '''usage: %prog [options] reads.[fastq|sra]+
+	usage = '''usage: %prog [options] reads.[fastq|sra|bam]+
 
 takes fastq or sra files and runs the hiclib pipeline on it
-Note, read pairs in fastq format (possible gzipped) need to be stated next to each other, i.e. fastq_r1 fastq_r2
+Note, read pairs in fastq format (possible gzipped) or bam need to be stated next to each other, i.e. fastq_r1 fastq_r2
 	'''
 	parser = OptionParser(usage)
 	parser.add_option("-q", "--quiet", action="store_false", dest="verbose", default=True,
@@ -30,21 +30,23 @@ Note, read pairs in fastq format (possible gzipped) need to be stated next to ea
 					help="Name of the experiment")
 	parser.add_option("-b", "--bowtie", type="string", dest="bowtie", default="", 
 					help="location of bowtie [default: %default]")
-	parser.add_option("-g", "--genome", type="string", dest="genome", default="", 
+	parser.add_option("-r", "--referenceGenome", type="string", dest="genome", default="", 
 					help="genome in fasta format [default: %default]")
+	parser.add_option("-g", "--gapFile", type="string", dest="gapFile", default="",
+					help="location of the gapfile [default: %default]")
 	parser.add_option("-i", "--index", type="string", dest="index", default="", 
 					help="location of genome index")
 	parser.add_option("-l", "--readLength", type="int", dest="readLength", default=100, 
 					help="length of the reads [default: %default]")
 	parser.add_option("-f", "--inputFormat", type="string", dest="inputFormat", default="fastq", 
-					help="format of the input file, either fastq or sra [default: %default]")
+					help="format of the input file, either fastq, sra or bam [default: %default]")
 	parser.add_option("-o", "--outputDir", type="string", dest="outputDir", default="", 
 					help="output directory [default: %default]")
 	parser.add_option("-c", "--cpu", type="int", dest="cpu", default=1, 
 					help="number of cpus to use [default: %default]")
 	parser.add_option("-t", "--tmpDir", type="string", dest="tmpDir", default="/tmp", 
 					help="directory for temp files [default: %default]")
-	parser.add_option("-r", "--sra-reader", type="string", dest="sra", default="fastq-dump", 
+	parser.add_option("-s", "--sra-reader", type="string", dest="sra", default="fastq-dump", 
 					help="location of sra reader fastq-dump in case input is SRA [default: %default]")
 	
 	(options, args) = parser.parse_args()
@@ -52,11 +54,11 @@ Note, read pairs in fastq format (possible gzipped) need to be stated next to ea
 		parser.print_help()
 		parser.error("[ERROR] Incorrect number of arguments, need at least one read file")
 
-	if (options.inputFormat != 'fastq' and options.inputFormat != 'sra'):
+	if (options.inputFormat != 'fastq' and options.inputFormat != 'sra' and options.inputFormat != 'bam'):
 		print >> sys.stderr, "[ERROR] Input format not supported: %s" % (options.inputFormat)
 		sys.exit(1)	
 
-	if (options.inputFormat == 'fastq' and len(args) %% 2 != 0):
+	if ((options.inputFormat == 'fastq' or options.inputFormat == 'bam') and len(args) % 2 != 0):
 		print >> sys.stderr, "[ERROR] Both reads are required for files in fastq"
 		sys.exit(1)	
 
@@ -76,14 +78,9 @@ Note, read pairs in fastq format (possible gzipped) need to be stated next to ea
 		print >> sys.stderr, "[ERROR] Please provide a name for the experiment, e.g. [Cellline]_[Enzymename]_[Replica]"
 		sys.exit(1)
 	
-	if (options.output != ""): 
-		options.output += "/"
+	if (options.outputDir != ""): 
+		options.outputDir += os.pathsep
 		
-
-	if (options.verbose):
-		print >> sys.stderr, "read1.fastq  : %s" % (args[0])
-		print >> sys.stderr, "read2.fastq  : %s" % (args[1])
-			
 	process()
 
 
@@ -92,7 +89,7 @@ def mapFile(fastq, read):
 	global args
 
 	fileName, fileExtension = os.path.splitext(fastq)
-	bamOutput = options.output+'/'+fileName.split('/')[-1]+'_'+read+'.bam'
+	bamOutput = options.outputDir+fileName.split(os.pathsep)[-1]+'_R'+str(read)+'.bam'
 	
 	if (fileExtension == 'sra'):
 		if (options.verbose):
@@ -121,8 +118,8 @@ def mapFile(fastq, read):
 		    out_sam_path=bamOutput,
 		    min_seq_len=25,
 		    len_step=5,
-		    seq_start=readLength*(read-1),
-		    seq_end=readLength*(read),
+		    seq_start=options.readLength*(read-1),
+		    seq_end=options.readLength*(read),
 		    nthreads=options.cpu,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive')
@@ -138,7 +135,7 @@ def mapFiles():
 		if (options.verbose):
 			print >> sys.stdout, "**  Process fastq files"
 
-		for (i in range(0, len(args),2)):
+		for i in range(0, len(args),2):
 			
 			if (options.verbose):
 				print >> sys.stdout, "**  Map first input file"
@@ -152,7 +149,7 @@ def mapFiles():
 		if (options.verbose):
 			print >> sys.stdout, "**  Process sra files"
 
-		for (i in range(0, len(args))):
+		for i in range(0, len(args)):
 			
 			if (options.verbose):
 				print >> sys.stdout, "**  Map first input file"
@@ -192,7 +189,7 @@ def filterFragments(genome_db):
 	'''
 	
 	fragments = fragmentHiC.HiCdataset(
-	    filename=options.output+'/fragment_dataset.hdf5',
+	    filename=options.outputDir+'fragment_dataset.hdf5',
 	    genome=genome_db,
 	    maximumMoleculeLength=500,
 	    mode='w')
@@ -201,7 +198,7 @@ def filterFragments(genome_db):
 	# at this stage, with maximumMoleculeLength specified at the initiation of the 
 	# object.
 	fragments.parseInputData(
-	    dictLike=options.output+'/mapped_reads.hdf5')
+	    dictLike=options.outputDir+'mapped_reads.hdf5')
 	
 	fragments.filterRsiteStart(offset=5)
 	fragments.filterDuplicates()
@@ -209,7 +206,7 @@ def filterFragments(genome_db):
 	fragments.filterLarge()
 	fragments.filterExtreme(cutH=0.005, cutL=0)
 	
-	fragments.saveHeatmap(options.output+'/heatmap-res-1M.hdf5', resolution=1000000)
+	fragments.saveHeatmap(options.outputDir+'heatmap-res-1M.hdf5', resolution=1000000)
 	
 	return fragments
 
@@ -219,12 +216,12 @@ def iterativeFiltering(genome_db, fragments):
 	'''
 	
 	# Read resolution from the dataset.
-	raw_heatmap = h5dict.h5dict(options.output+'/heatmap-res-1M.hdf5', mode='r') 
+	raw_heatmap = h5dict.h5dict(options.outputDir+'heatmap-res-1M.hdf5', mode='r') 
 	resolution = int(raw_heatmap['resolution'])
 	
 	# Create a binnedData object, load the data.
 	BD = binnedData.binnedData(resolution, genome_db)
-	BD.simpleLoad(options.output+'/heatmap-res-1M.hdf5', options.experiment)
+	BD.simpleLoad(options.outputDir+'heatmap-res-1M.hdf5', options.experiment)
 
 	# Remove the contacts between loci located within the same bin.
 	BD.removeDiagonal()
@@ -242,7 +239,7 @@ def iterativeFiltering(genome_db, fragments):
 	BD.iterativeCorrectWithoutSS()
 
 	# Save the iteratively corrected heatmap.
-	BD.export(options.experiment, options.output+'/IC-heatmap-res-1M.hdf5')
+	BD.export(options.experiment, options.outputDir+'IC-heatmap-res-1M.hdf5')
 	
 	# Plot the heatmap directly.
 	plotting.plot_matrix(np.log(BD.dataDict[options.experiment]))
@@ -261,23 +258,27 @@ def process():
 		print >> sys.stdout, "**  Create directories"
 
 	if not os.path.exists(options.tmpDir):
-	    os.mkdir(options.tmpDir)
+		os.mkdir(options.tmpDir)
 
 	if not os.path.exists(options.outputDir):
-	    os.mkdir(options.outputDir)
+		os.mkdir(options.outputDir)
 	
 	if (options.verbose):
 		print >> sys.stdout, "**  Create data objects"
 
-	mapped_reads = h5dict.h5dict(options.output+'/mapped_reads.hdf5')
-	genome_db    = genome.Genome(options.genome)
+	mapped_reads = h5dict.h5dict(options.outputDir+'mapped_reads.hdf5')
+	genome_db    = genome.Genome(options.genome, options.gapFile)
 
-	bams = mapFiles()
+	bams = []
+	if (options.inputFormat != 'bam'):
+		bams = mapFiles()
+	else:
+		bams = args[0:]
 
 	if (options.verbose):
 		print >> sys.stdout, "**  Collect mapped reads"
 		
-	collectMappedReads(bam_read1, bam_read2, mapped_reads, genome_db)
+	collectMappedReads(bams[0], bams[1], mapped_reads, genome_db)
 	
 	if (options.verbose):
 		print >> sys.stdout, "**  Filter fragments"
