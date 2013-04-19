@@ -10,9 +10,6 @@ from mirnylib import plotting
 from hiclib import binnedData
 
 
-if __name__ == "__main__":
-	main()
-
 # manage option and arguments processing
 def main():
 	global options
@@ -258,3 +255,8 @@ def process():
 	
 	
 	
+######################################
+# main
+######################################
+if __name__ == "__main__":
+	main()
