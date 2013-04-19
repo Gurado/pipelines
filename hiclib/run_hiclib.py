@@ -14,9 +14,10 @@ from hiclib import binnedData
 def main():
 	global options
 	global args
-	usage = '''usage: %prog [options] read1.fastq read2.fastq
+	usage = '''usage: %prog [options] reads.[fastq|sra]+
 
-takes two hic fastq files and runs the hiclib pipeline on it
+takes fastq or sra files and runs the hiclib pipeline on it
+Note, read pairs in fastq format (possible gzipped) need to be stated next to each other, i.e. fastq_r1 fastq_r2
 	'''
 	parser = OptionParser(usage)
 	parser.add_option("-q", "--quiet", action="store_false", dest="verbose", default=True,
@@ -33,6 +34,10 @@ takes two hic fastq files and runs the hiclib pipeline on it
 					help="genome in fasta format [default: %default]")
 	parser.add_option("-i", "--index", type="string", dest="index", default="", 
 					help="location of genome index")
+	parser.add_option("-l", "--readLength", type="int", dest="readLength", default=100, 
+					help="length of the reads [default: %default]")
+	parser.add_option("-f", "--inputFormat", type="string", dest="inputFormat", default="fastq", 
+					help="format of the input file, either fastq or sra [default: %default]")
 	parser.add_option("-o", "--outputDir", type="string", dest="outputDir", default="", 
 					help="output directory [default: %default]")
 	parser.add_option("-c", "--cpu", type="int", dest="cpu", default=1, 
@@ -43,9 +48,13 @@ takes two hic fastq files and runs the hiclib pipeline on it
 					help="location of sra reader fastq-dump in case input is SRA [default: %default]")
 	
 	(options, args) = parser.parse_args()
-	if (len(args) != 2):
+	if (len(args) < 1):
 		parser.print_help()
-		parser.error("incorrect number of arguments")
+		parser.error("[ERROR] Incorrect number of arguments, need at least one read file")
+
+	if (options.inputFormat == 'fastq' and len(args) %% 2 != 0):
+		print >> sys.stderr, "[ERROR] Both reads are required for files in fastq"
+		sys.exit(1)	
 
 	if (options.genome == ""):
 		print >> sys.stderr, "[ERROR] Please specify the location of the reference genome in fasta format"
@@ -74,12 +83,12 @@ takes two hic fastq files and runs the hiclib pipeline on it
 	process()
 
 
-def mapFastq(fastq):
+def mapFile(fastq, read):
 	global options
 	global args
 
 	fileName, fileExtension = os.path.splitext(fastq)
-	bamOutput = options.output+'/'+fileName.split('/')[-1]+'.bam'
+	bamOutput = options.output+'/'+fileName.split('/')[-1]+'_'+read+'.bam'
 	
 	if (fileExtension == 'sra'):
 		if (options.verbose):
@@ -92,8 +101,6 @@ def mapFastq(fastq):
 		    out_sam_path=bamOutput,
 		    min_seq_len=25,
 		    len_step=5,
-		    seq_start=0,
-		    seq_end=75,
 		    nthreads=options.cpu,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive',
@@ -110,14 +117,50 @@ def mapFastq(fastq):
 		    out_sam_path=bamOutput,
 		    min_seq_len=25,
 		    len_step=5,
-		    seq_start=0,
-		    seq_end=75,
+		    seq_start=readLength*(read-1),
+		    seq_end=readLength*(read),
 		    nthreads=options.cpu,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive')
 		    
 	return bamOutput
-		   
+
+
+def mapFiles():
+
+	bams = []
+	if (options.inputFormat == 'fastq'):
+	
+		if (options.verbose):
+			print >> sys.stdout, "**  Process fastq files"
+
+		for (i in range(0, len(args),2)):
+			
+			if (options.verbose):
+				print >> sys.stdout, "**  Map first input file"
+			bams+=[mapFile(args[i], 1)]
+
+			if (options.verbose):
+				print >> sys.stdout, "**  Map second input file"
+		
+			bams+=[mapFile(args[i+1], 2)]
+	else:
+		if (options.verbose):
+			print >> sys.stdout, "**  Process sra files"
+
+		for (i in range(0, len(args))):
+			
+			if (options.verbose):
+				print >> sys.stdout, "**  Map first input file"
+			bams+=[mapFile(args[i], 1)]
+
+			if (options.verbose):
+				print >> sys.stdout, "**  Map second input file"
+		
+			bams+=[mapFile(args[i], 2)]
+	
+	return bams
+
 
 def collectMappedReads(bam_read1, bam_read2, mapped_reads, genome_db):
 	global options
@@ -225,15 +268,7 @@ def process():
 	mapped_reads = h5dict.h5dict(options.output+'/mapped_reads.hdf5')
 	genome_db    = genome.Genome(options.genome)
 
-	if (options.verbose):
-		print >> sys.stdout, "**  Map first input file"
-
-	bam_read1 = mapFastq(args[0])
-
-	if (options.verbose):
-		print >> sys.stdout, "**  Map second input file"
-
-	bam_read2 = mapFastq(args[1])
+	bams = mapFiles()
 
 	if (options.verbose):
 		print >> sys.stdout, "**  Collect mapped reads"
