@@ -134,8 +134,6 @@ def mapFile(fastq, read):
 		    out_sam_path=bamOutput,
 		    min_seq_len=25,
 		    len_step=5,
-		    seq_start=options.readLength*(read-1),
-		    seq_end=options.readLength*(read),
 		    nthreads=options.cpus,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive')
