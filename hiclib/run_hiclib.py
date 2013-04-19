@@ -52,7 +52,7 @@ Note, read pairs in fastq format (possible gzipped) need to be stated next to ea
 		parser.print_help()
 		parser.error("[ERROR] Incorrect number of arguments, need at least one read file")
 
-	if (options.inputFormat != 'fastq' && options.inputFormat != 'sra'):
+	if (options.inputFormat != 'fastq' and options.inputFormat != 'sra'):
 		print >> sys.stderr, "[ERROR] Input format not supported: %s" % (options.inputFormat)
 		sys.exit(1)	
 
