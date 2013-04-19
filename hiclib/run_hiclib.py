@@ -66,7 +66,7 @@ Note, read pairs in fastq format (possible gzipped) or bam need to be stated nex
 		print >> sys.stderr, "[ERROR] Please specify the location of the reference genome in fasta format"
 		sys.exit(1)
 
-	if (options.index == ""):
+	if (options.inputFormat != 'bam' and options.index == ""):
 		print >> sys.stderr, "[ERROR] Please specify the location of the bowtie2 index for the reference genome"
 		sys.exit(1)
 		
