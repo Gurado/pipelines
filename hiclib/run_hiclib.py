@@ -42,7 +42,7 @@ Note, read pairs in fastq format (possible gzipped) or bam need to be stated nex
 					help="format of the input file, either fastq, sra or bam [default: %default]")
 	parser.add_option("-o", "--outputDir", type="string", dest="outputDir", default="", 
 					help="output directory [default: %default]")
-	parser.add_option("-c", "--cpu", type="int", dest="cpu", default=1, 
+	parser.add_option("-c", "--cpus", type="int", dest="cpus", default=1, 
 					help="number of cpus to use [default: %default]")
 	parser.add_option("-t", "--tmpDir", type="string", dest="tmpDir", default="/tmp", 
 					help="directory for temp files [default: %default]")
@@ -79,8 +79,22 @@ Note, read pairs in fastq format (possible gzipped) or bam need to be stated nex
 		sys.exit(1)
 	
 	if (options.outputDir != ""): 
-		options.outputDir += os.pathsep
-		
+		options.outputDir += os.sep
+	
+
+	if (options.verbose):
+		print >> sys.stdout, "restrictionEnzyme:  %s" % (options.enzyme)
+		print >> sys.stdout, "experimentName:     %s" % (options.experiment)
+		print >> sys.stdout, "bowtie:             %s" % (options.bowtie)
+		print >> sys.stdout, "referenceGenome:    %s" % (options.genome)
+		print >> sys.stdout, "index:              %s" % (options.index)
+		print >> sys.stdout, "readLength:         %d" % (options.readLength)
+		print >> sys.stdout, "outputDir:          %s" % (options.outputDir)
+		print >> sys.stdout, "tmpDir:             %s" % (options.tmpDir)
+		print >> sys.stdout, "cpus:               %s" % (options.cpus)
+		print >> sys.stdout, "inputFormat:        %s" % (options.inputFormat)
+		print >> sys.stdout, "sra-reader:         %s" % (options.sra)
+
 	process()
 
 
@@ -89,12 +103,12 @@ def mapFile(fastq, read):
 	global args
 
 	fileName, fileExtension = os.path.splitext(fastq)
-	bamOutput = options.outputDir+fileName.split(os.pathsep)[-1]+'_R'+str(read)+'.bam'
+	bamOutput = options.outputDir+fileName.split(os.sep)[-1]+'_R'+str(read)+'.bam'
 	
-	if (fileExtension == 'sra'):
+	if (fileExtension == '.sra'):
 		if (options.verbose):
 			print >> sys.stdout, "Map short read archive %s utilizing %s" % (fastq, options.sra)
-			
+
 		mapping.iterative_mapping(
 		    bowtie_path=options.bowtie,
 		    bowtie_index_path=options.index,
@@ -102,7 +116,7 @@ def mapFile(fastq, read):
 		    out_sam_path=bamOutput,
 		    min_seq_len=25,
 		    len_step=5,
-		    nthreads=options.cpu,
+		    nthreads=options.cpus,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive',
 		    bash_reader=options.sra+' -Z')
@@ -120,7 +134,7 @@ def mapFile(fastq, read):
 		    len_step=5,
 		    seq_start=options.readLength*(read-1),
 		    seq_end=options.readLength*(read),
-		    nthreads=options.cpu,
+		    nthreads=options.cpus,
 		    temp_dir=options.tmpDir, 
 		    bowtie_flags='--very-sensitive')
 		    
