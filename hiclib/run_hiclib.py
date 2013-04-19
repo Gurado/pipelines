@@ -35,7 +35,7 @@ Note, read pairs in fastq format (possible gzipped) or bam need to be stated nex
 	parser.add_option("-g", "--gapFile", type="string", dest="gapFile", default="",
 					help="location of the gapfile [default: %default]")
 	parser.add_option("-i", "--index", type="string", dest="index", default="", 
-					help="location of genome index")
+					help="location of genome index including the basename")
 	parser.add_option("-l", "--readLength", type="int", dest="readLength", default=100, 
 					help="length of the reads [default: %default]")
 	parser.add_option("-f", "--inputFormat", type="string", dest="inputFormat", default="fastq", 
