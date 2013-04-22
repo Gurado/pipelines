@@ -1,10 +1,15 @@
 import os, sys
 import logging
+import matplotlib
+matplotlib.use('PDF')
+
 from hiclib import mapping
 from mirnylib import h5dict, genome
 from hiclib import fragmentHiC
 from optparse import OptionParser
+
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 from mirnylib import plotting
 from hiclib import binnedData
@@ -254,8 +259,7 @@ def iterativeFiltering(genome_db, fragments):
 
 	# Save the iteratively corrected heatmap.
 	BD.export(options.experiment, options.outputDir+'IC-heatmap-res-1M.hdf5')
-	
-	# Plot the heatmap directly.
+
 	plotting.plot_matrix(np.log(BD.dataDict[options.experiment]))
 
 def process():
@@ -265,7 +269,8 @@ def process():
 	if (options.verbose):
 		print >> sys.stdout, "*** START processing"
 
-	
+	fig = plt.gcf()
+
 	logging.basicConfig(level=logging.DEBUG)
 	
 	if (options.verbose):
@@ -283,16 +288,16 @@ def process():
 	mapped_reads = h5dict.h5dict(options.outputDir+'mapped_reads.hdf5')
 	genome_db    = genome.Genome(options.genome, options.gapFile)
 
-	bams = []
-	if (options.inputFormat != 'bam'):
-		bams = mapFiles()
-	else:
-		bams = args[0:]
+#	bams = []
+#	if (options.inputFormat != 'bam'):
+#		bams = mapFiles()
+#	else:
+#		bams = args[0:]
 
 	if (options.verbose):
 		print >> sys.stdout, "**  Collect mapped reads"
 		
-	collectMappedReads(bams[0], bams[1], mapped_reads, genome_db)
+#	collectMappedReads(bams[0], bams[1], mapped_reads, genome_db)
 	
 	if (options.verbose):
 		print >> sys.stdout, "**  Filter fragments"
@@ -307,7 +312,7 @@ def process():
 	if (options.verbose):
 		print >> sys.stdout, "*** FINISHED processing"
 	
-	
+	fig.savefig(options.outputDir+options.experiment+'.pdf')	
 	
 ######################################
 # main
