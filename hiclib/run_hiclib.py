@@ -286,7 +286,7 @@ def process():
 		print >> sys.stdout, "**  Create data objects"
 
 	mapped_reads = h5dict.h5dict(options.outputDir+'mapped_reads.hdf5')
-	genome_db    = genome.Genome(options.genome, options.gapFile)
+	genome_db    = genome.Genome(options.genome, gapFile=options.gapFile, chrmFileTemplate='%s.fa',)
 
 #	bams = []
 #	if (options.inputFormat != 'bam'):
