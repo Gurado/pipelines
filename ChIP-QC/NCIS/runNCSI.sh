@@ -112,7 +112,7 @@ fi
 ## Check if data already existing
 ##
 
-if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CHIP}.bam ]; then
+if [ ! -f ${DATA}${CHIP}.bam ]; then
    echo "** get ${CHIP} data from gagri" >> ${LOG}/${JOBNAME}.log
    if [ -f  ~/.smbclient ]; then
       smbclient \\\\gagri\\GRIW -A ~/.smbclient -c "cd ${GAGRI}/${CHIP}; get ${CHIP}.bam" && mv ${CHIP}.bam ${DATA}
@@ -121,7 +121,7 @@ if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CHIP}.bam ]; then
    fi
 fi
 
-if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CONTROL}.bam ]; then
+if [ ! -f ${DATA}${CONTROL}.bam ]; then
    echo "** get ${CONTROL} data from gagri" >> ${LOG}/${JOBNAME}.log
    if [ -f  ~/.smbclient ]; then
       smbclient \\\\gagri\\GRIW -A ~/.smbclient -c "cd ${GAGRI}/${CONTROL}; get ${CONTROL}.bam" && mv ${CONTROL}.bam ${DATA}
@@ -148,11 +148,11 @@ echo "write.table(res, file='${RESULT}${CHIP}-${CONTROL}.txt', sep='\t')" >> ${B
 
 if [ ${DRYRUN} = "TRUE" ]; then
 
-   echo "qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet '${BIN}${CHIP}-${CONTROL}.R'" >> ${LOG}/${JOBNAME}.log
+   echo "qsub -pe smp $NCORES -V -cwd -j y -m e -o ${LOG} ${JOBPARAMS} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet '${BIN}${CHIP}-${CONTROL}.R'" >> ${LOG}/${JOBNAME}.log
    tail -n 1 ${LOG}/${JOBNAME}.log
 
 else
    echo "** submit job" >> ${LOG}/${JOBNAME}.log
-   qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS}  -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet "${BIN}${CHIP}-${CONTROL}.R"
+   qsub -pe smp $NCORES -V -cwd -j y -m e -o ${LOG} ${JOBPARAMS}  -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y /share/ClusterShare/software/contrib/Cancer-Epigenetics/tools/bin/Rscript --quiet "${BIN}${CHIP}-${CONTROL}.R"
 fi
 

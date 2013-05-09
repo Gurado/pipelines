@@ -22,8 +22,7 @@ Requirements (in PATH environment or specified):
 * -v - print progress information (verbose).
 "
 
-
-DIR=`dirname $0`
+DIR=$(dirname $0)
 VERSION="0.0.1"
 
 [ $# -lt 2 ] && echo "$USAGEMSG" >&2 && exit 1
@@ -34,7 +33,7 @@ GAGRI=/Cancer-Epigenetics/Data/ClarkLab/Seq/ChIP-Seq/hg19/
 CHANCE="/share/ClusterShare/software/contrib/fabbus/chance/com/run_chance_com.sh /share/ClusterShare/software/contrib/fabbus/matlab/mcr2012b/v80"
 BUILD="hg19"
 EXPERIMENTID=""
-WORKINGDIR=$PWD
+WORKINGDIR=$(pwd)
 DRYRUN="FALSE"
 FORCE="FALSE"
 NCORES=1
@@ -118,7 +117,7 @@ fi
 ## Check if data already existing
 ##
 
-if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CHIP}.bam ]; then
+if [ ! -f ${DATA}${CHIP}.bam ]; then
    echo "** get ${CHIP} data from gagri" >> ${LOG}/${JOBNAME}.log
    if [ -f  ~/.smbclient ]; then
       smbclient \\\\gagri\\GRIW -A ~/.smbclient -c "cd ${GAGRI}/${CHIP}; get ${CHIP}.bam" && mv ${CHIP}.bam ${DATA}
@@ -127,7 +126,7 @@ if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CHIP}.bam ]; then
    fi
 fi
 
-if [ ${FORCE} = "TRUE" ] || [ ! -f ${DATA}${CONTROL}.bam ]; then
+if [ ! -f ${DATA}${CONTROL}.bam ]; then
    echo "** get ${CONTROL} data from gagri" >> ${LOG}/${JOBNAME}.log
    if [ -f  ~/.smbclient ]; then
       smbclient \\\\gagri\\GRIW -A ~/.smbclient -c "cd ${GAGRI}/${CONTROL}; get ${CONTROL}.bam" && mv ${CONTROL}.bam ${DATA}
@@ -141,22 +140,27 @@ fi
 ##
 
 echo "** write shell script" >> ${LOG}/${JOBNAME}.log
-echo "#!/bin/sh -e" > ${BIN}/${CHIP}-${CONTROL}.sh
+echo "#!/bin/sh" > ${BIN}/${CHIP}-${CONTROL}.sh
+echo "source /etc/profile.d/modules.sh" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 ## binData mode not crucial
-# echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.mat -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
-# echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CONTROL} -o ${RESULT}/${CONTROL}.mat -f ${DATA}/${CONTROL}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CHIP} -o ${DATA}/${CHIP}.mat -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#echo "${CHANCE} binData -b ${BUILD} -t bam -s ${CONTROL} -o ${DATA}/${CONTROL}.mat -f ${DATA}/${CONTROL}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+
+echo "** compute IPstrength" >> ${LOG}/${JOBNAME}.log
 
 echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
-## spectrum and compENCODE modes buggy
+#echo "${CHANCE} IPStrength -b ${BUILD} -t mat  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.mat --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.mat --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 if [ -n "${EXPERIMENTID}" ]; then
-	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+		echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#		echo "${CHANCE} compENCODE -b ${BUILD} -t mat -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.mat --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.mat --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 fi
 
-echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
+# echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
+echo "** finished shell script" >> ${LOG}/${JOBNAME}.log
 
 chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
 
@@ -166,11 +170,11 @@ chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
 
 if [ ${DRYRUN} = "TRUE" ]; then
 
-   echo "qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y ${BIN}${CHIP}-${CONTROL}.sh" >> ${LOG}/${JOBNAME}.log
+   echo "qsub -pe smp $NCORES -V -j y -m e -o ${LOG} ${JOBPARAMS} -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y ${BIN}${CHIP}-${CONTROL}.sh" >> ${LOG}/${JOBNAME}.log
    tail -n 1 ${LOG}/${JOBNAME}.log
 
 else
    echo "** submit job" >> ${LOG}/${JOBNAME}.log
-   qsub -pe smp $NCORES -m e -o ${LOG} ${JOBPARAMS}  -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y ${BIN}${CHIP}-${CONTROL}.sh
+   qsub -pe smp $NCORES -V -j y -m e -o ${LOG} ${JOBPARAMS}  -e ${LOG} -N ${JOBNAME} -M `whoami`@garvan.unsw.edu.au -wd ${WORKINGDIR} -b y ${BIN}${CHIP}-${CONTROL}.sh
 fi
 
