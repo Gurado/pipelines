@@ -31,10 +31,12 @@ ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, 
 	df <- data.frame(rbind(df1,df2))
 	maxdist <- which.max(abs(hg19.ordered$ChIPcounts[spaced]-hg19.ordered$INPUTcounts[spaced]))
 	
-	p1 <- ggplot(df, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) 
+	p1 <- ggplot(df, aes(x=bin, y=value, group=type)) 
 	p1 <- p1 + geom_vline(xintercept = maxdist, colour="grey")
+	p1 <- p1 + geom_line(aes(color=type))
 	p1 <- p1 + xlab("Percentage of bins") + ylab("Percentage of reads") 
-	p1 <- p1 + theme(legend.position = c(0.5, 0.9), legend.text=element_text(size=10), legend.background = element_rect(fill = "white", colour = NA))	
+	p1 <- p1 + theme(legend.position = c(0, 1), legend.justification = c(0, 1), legend.text=element_text(size=8), legend.title=element_blank(), legend.background = element_rect(fill = "white", colour = NA))	
+	p1 <- p1 + scale_x_continuous(breaks=seq(0,dataPoints, by=(dataPoints)/4), labels=c(0,25,50,75,100))
 	
 	
 	# get derivative
@@ -47,13 +49,15 @@ ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, 
 	df4 <- data.frame(bin=c(1: length(slope1)), value=slope2, type="INPUT")
 	df5 <- data.frame(rbind(df3,df4))
 	
-	p2 <- ggplot(df5, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) + xlab("Percentage of bins") + ylab("dy/dx")
-	p2 <- p2 + geom_smooth(method = "lm",formula = y~bs(x, degree = 6),se = TRUE, alpha=0.5)
+	p2 <- ggplot(df5, aes(x=bin, y=value, group=type)) + xlab("Percentage of bins") + ylab("dy/dx")
+	#p2 <- p2 + geom_smooth(method = "lm",formula = y~bs(x, degree = 5),se = TRUE, alpha=0.5)
 	p2 <- p2 + geom_vline(xintercept = maxdist, colour="grey")
+	p2 <- p2 + geom_line(aes(color=type))
 	p2 <- p2 + theme(legend.position="none")
+	p2 <- p2 + scale_x_continuous(breaks=seq(0,dataPoints, by=(dataPoints)/4), labels=c(0,25,50,75,100))
 	
 	# print plots
-	pdf(paste(outputpath,"/", ipname, ".pdf", sep=""), width = 10, height=5)
+	pdf(paste(outputpath,"/", ipname, ".pdf", sep=""), width=8, height=4)
 	grid.arrange(p1, p2 , ncol=2)
 	dev.off()
 }
