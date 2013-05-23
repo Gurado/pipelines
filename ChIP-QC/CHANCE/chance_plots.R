@@ -3,14 +3,14 @@ library(BSgenome.Hsapiens.UCSC.hg19)
 library(ggplot2)
 library(splines)
 library(gridExtra)
+library(tools)
 
 args <- commandArgs(trailingOnly = TRUE)
 chip<-args[1]
 input<-args[2]
-fname<-args[3]
-path<-args[4]
+outputpath<-args[3]
 
-ChIPQC <- function(rsChip, rsInput, name, path, windowSize=1000, dataPoints=1000)
+ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, dataPoints=1000)
 {	
 	hg19.windows <- genomeBlocks(Hsapiens, chrs=1:24, windowSize)
 	ChIPcounts <- countOverlaps(hg19.windows, rsChIP)
@@ -25,15 +25,15 @@ ChIPQC <- function(rsChip, rsInput, name, path, windowSize=1000, dataPoints=1000
 	hg19.ordered$ChIPcounts = hg19.ordered$ChIPcounts/hg19.ordered$ChIPcounts[length(hg19.windows)]
 	hg19.ordered$INPUTcounts = hg19.ordered$INPUTcounts/hg19.ordered$INPUTcounts[length(hg19.windows)]	
 
-	spaced <- round(seq(1,length(hg19.windows), by=length(hg19.windows)/dataPoints))
-	df1 <- data.frame("bin"=c(1:dataPoints),"value"=hg19.ordered$ChIPcounts[spaced], "type"="ChIP")
-	df2 <- data.frame("bin"=c(1:dataPoints),"value"=hg19.ordered$INPUTcounts[spaced], "type"="INPUT")
+	spaced <- c(round(seq(1,length(hg19.windows), by=(length(hg19.windows)-1)/dataPoints)))
+	df1 <- data.frame("bin"=c(1: dataPoints),"value"=hg19.ordered$ChIPcounts[spaced], "type"= ipname)
+	df2 <- data.frame("bin"=c(1: dataPoints),"value"=hg19.ordered$INPUTcounts[spaced], "type"= cname)
 	df <- data.frame(rbind(df1,df2))
 	maxdist <- which.max(abs(hg19.ordered$ChIPcounts[spaced]-hg19.ordered$INPUTcounts[spaced]))
 	
 	p1 <-ggplot(df, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) 
 	p1 <- p1 + geom_vline(xintercept = maxdist, colour="grey")
-	p1 <- p1 + xlab("Percentage of bins") + ylab("Percentage of reads") + ggtitle(name)
+	p1 <- p1 + xlab("Percentage of bins") + ylab("Percentage of reads") + ggtitle("ChIP-QC by CHANCE algorithm")
 	p1 <- p1 + theme(legend.position = c(0.1, 0.9), legend.background = element_rect(fill = "white", colour = NA))	
 	
 	
@@ -53,7 +53,7 @@ ChIPQC <- function(rsChip, rsInput, name, path, windowSize=1000, dataPoints=1000
 	p2 <- p2 + theme(legend.position="none")
 	
 	# print plots
-	pdf(paste(path,"/",name, ".pdf", sep=""), width = 10, height=5)
+	pdf(paste(outputpath,"/", ipname, ".pdf", sep=""), width = 10, height=5)
 	grid.arrange(p1, p2 , ncol=2)
 	dev.off()
 }
@@ -64,5 +64,5 @@ rsINPUT <- BAM2GRanges(input)
 rsChIP <- resize(rsChIP, 1, fix="start")
 rsINPUT <- resize(rsINPUT, 1, fix="start")
 
-ChIPQC(rsChip,rsInput, fname,path)
+ChIPQC(rsChip,rsInput, basename(file_path_sans_ext(chip)), basename(file_path_sans_ext(input)), outputpath)
 

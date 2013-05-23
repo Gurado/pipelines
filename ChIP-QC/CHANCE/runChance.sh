@@ -43,18 +43,18 @@ JOBPARAMS="-l h_vmem=25G,virtual_free=10G"
 
 while getopts "g:b:e:w:N:p:dfv" opt;
 do
-        case ${opt} in
-        g) GAGRI="$OPTARG";;
-	b) BUILD="$OPTARG";;
-	e) EXPERIMENTID="$OPTARG";;
-	N) JOBNAME="$OPTARG";;
-	p) JOBPARAMS="$OPTARG";;
-        w) WORKINGDIR="$OPTARG";;
-	d) DRYRUN="TRUE";;
-	f) FORCE="TRUE";;
-        v) VERBOSE="--verbose";;
-        \?) print >&2 "$0: error - unrecognized option $1"
-                exit 1;;
+	case ${opt} in
+		g) GAGRI="$OPTARG";;
+		b) BUILD="$OPTARG";;
+		e) EXPERIMENTID="$OPTARG";;
+		N) JOBNAME="$OPTARG";;
+		p) JOBPARAMS="$OPTARG";;
+		w) WORKINGDIR="$OPTARG";;
+		d) DRYRUN="TRUE";;
+		f) FORCE="TRUE";;
+		v) VERBOSE="--verbose";;
+		\?) print >&2 "$0: error - unrecognized option $1"
+		exit 1;;
         esac
 done
 
@@ -162,7 +162,7 @@ fi
 
 
 # get plots using R
-Rscript --vanilla --quiet  chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${CHIP} ${RESULT}
+Rscript --vanilla --quiet  chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${RESULT}
 echo "** finished shell script" >> ${LOG}/${JOBNAME}.log
 
 chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
