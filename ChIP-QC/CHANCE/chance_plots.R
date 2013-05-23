@@ -26,15 +26,15 @@ ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, 
 	hg19.ordered$INPUTcounts = hg19.ordered$INPUTcounts/hg19.ordered$INPUTcounts[length(hg19.windows)]	
 
 	spaced <- c(round(seq(1,length(hg19.windows), by=(length(hg19.windows)-1)/dataPoints)))
-	df1 <- data.frame("bin"=c(1: dataPoints),"value"=hg19.ordered$ChIPcounts[spaced], "type"= ipname)
-	df2 <- data.frame("bin"=c(1: dataPoints),"value"=hg19.ordered$INPUTcounts[spaced], "type"= cname)
+	df1 <- data.frame("bin"=c(1: length(hg19.ordered$ChIPcounts[spaced])),"value"=hg19.ordered$ChIPcounts[spaced], "type"= ipname)
+	df2 <- data.frame("bin"=c(1: length(hg19.ordered$INPUTcounts[spaced])),"value"=hg19.ordered$INPUTcounts[spaced], "type"= cname)
 	df <- data.frame(rbind(df1,df2))
 	maxdist <- which.max(abs(hg19.ordered$ChIPcounts[spaced]-hg19.ordered$INPUTcounts[spaced]))
 	
-	p1 <-ggplot(df, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) 
+	p1 <- ggplot(df, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) 
 	p1 <- p1 + geom_vline(xintercept = maxdist, colour="grey")
-	p1 <- p1 + xlab("Percentage of bins") + ylab("Percentage of reads") + ggtitle("ChIP-QC by CHANCE algorithm")
-	p1 <- p1 + theme(legend.position = c(0.1, 0.9), legend.background = element_rect(fill = "white", colour = NA))	
+	p1 <- p1 + xlab("Percentage of bins") + ylab("Percentage of reads") 
+	p1 <- p1 + theme(legend.position = c(0.5, 0.9), legend.text=element_text(size=10), legend.background = element_rect(fill = "white", colour = NA))	
 	
 	
 	# get derivative
@@ -47,7 +47,7 @@ ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, 
 	df4 <- data.frame(bin=c(1: length(slope1)), value=slope2, type="INPUT")
 	df5 <- data.frame(rbind(df3,df4))
 	
-	p2 <-ggplot(df5, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) + ggtitle("Derivative") + xlab("Percentage of bins") + ylab("dy/dx")
+	p2 <- ggplot(df5, aes(x=bin, y=value, group=type)) + geom_line(aes(color=type)) + xlab("Percentage of bins") + ylab("dy/dx")
 	p2 <- p2 + geom_smooth(method = "lm",formula = y~bs(x, degree = 6),se = TRUE, alpha=0.5)
 	p2 <- p2 + geom_vline(xintercept = maxdist, colour="grey")
 	p2 <- p2 + theme(legend.position="none")
