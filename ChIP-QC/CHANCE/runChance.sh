@@ -162,7 +162,7 @@ fi
 
 
 # get plots using R
-Rscript --vanilla --quiet  chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${CHIP} ${RESULT}
+echo "Rscript --vanilla --quiet  $DIR/chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${CHIP} ${RESULT}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 echo "** finished shell script" >> ${LOG}/${JOBNAME}.log
 
 chmod 777 ${BIN}/${CHIP}-${CONTROL}.sh
