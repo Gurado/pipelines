@@ -149,20 +149,18 @@ echo "source /etc/profile.d/modules.sh" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 echo "** compute IPstrength" >> ${LOG}/${JOBNAME}.log
 
-echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#echo "${CHANCE} IPStrength -b ${BUILD} -t bam  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
-#echo "${CHANCE} IPStrength -b ${BUILD} -t mat  -o ${RESULT}/${CHIP}-${CONTROL}.IPstrength --ipfile ${DATA}/${CHIP}.mat --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.mat --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
-
-if [ -n "${EXPERIMENTID}" ]; then
-		echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
-#		echo "${CHANCE} compENCODE -b ${BUILD} -t mat -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.mat --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.mat --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
-fi
+#if [ -n "${EXPERIMENTID}" ]; then
+#	echo "${CHANCE} compENCODE -b ${BUILD} -t bam -o ${RESULT}/${CHIP}-${CONTROL}.compENCODE -e ${EXPERIMENTID} --ipfile ${DATA}/${CHIP}.bam --ipsample ${CHIP} --inputfile ${DATA}/${CONTROL}.bam --inputsample ${CONTROL}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+#fi
 
 # echo "${CHANCE} spectrum -b ${BUILD} -t bam -s ${CHIP} -o ${RESULT}/${CHIP}.spectrum -f ${DATA}/${CHIP}.bam" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 
 # get plots using R
-Rscript --vanilla --quiet  ${DIR}/chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${RESULT}
+#echo "Rscript --vanilla --quiet  ${DIR}/chance_plots.R ${DATA}/${CHIP}.bam ${DATA}/${CONTROL}.bam ${RESULT}" >> ${BIN}/${CHIP}-${CONTROL}.sh
+echo "${DIR}/makeHTMLSummary.sh ${RESULT}/${CHIP}-${CONTROL}.IPstrength ${RESULT}/${CHIP}.png ${RESULT}/${CHIP}-${CONTROL}.compENCODE" >> ${BIN}/${CHIP}-${CONTROL}.sh
 
 echo "** finished shell script" >> ${LOG}/${JOBNAME}.log
 

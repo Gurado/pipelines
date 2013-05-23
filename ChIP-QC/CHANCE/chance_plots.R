@@ -60,6 +60,10 @@ ChIPQC <- function(rsChip, rsInput, ipname, cname, outputpath, windowSize=1000, 
 	pdf(paste(outputpath,"/", ipname, ".pdf", sep=""), width=8, height=4)
 	grid.arrange(p1, p2 , ncol=2)
 	dev.off()
+
+        png(paste(outputpath,"/", ipname, ".png", sep=""), width=800, height=400, units = "px")
+        grid.arrange(p1, p2 , ncol=2)
+        dev.off()
 }
 
 rsChIP <- BAM2GRanges(chip)
