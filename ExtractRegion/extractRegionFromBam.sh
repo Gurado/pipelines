@@ -16,9 +16,9 @@ USAGEMSG="usage: $(basename $0) -o outputDirectory -f outfilename -p -v BAM LOCA
 
 Generate toy example fastq files by taking a mapped file (BAM) and returning the FASTQ data for a specific region of interest
 examples:
-./extracRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_CTCF_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescCtcfStdRawDataRep1.asd.bam chr16:27184646-27472388
-./extracRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_H3k9me3_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescH3k09me3StdRawDataRep1.asd.bam chr16:27184646-27472388
-./extracRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq_input -n ChIPseq_Input_chr16 ~/research/integration/TFs/H1esc_control/bowtie/wgEncodeBroadHistoneH1hescControlStdRawData.asd.bam chr16:27184646-27472388
+./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_CTCF_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescCtcfStdRawDataRep1.asd.bam chr16:27184646-27472388
+./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_H3k9me3_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescH3k09me3StdRawDataRep1.asd.bam chr16:27184646-27472388
+./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq_input -n ChIPseq_Input_chr16 ~/research/integration/TFs/H1esc_control/bowtie/wgEncodeBroadHistoneH1hescControlStdRawData.asd.bam chr16:27184646-27472388
 
 Author: Fabian Buske
 Version: $VERSION
