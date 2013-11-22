@@ -27,7 +27,7 @@ Version: $VERSION
 * LOCATION - chr location in the form chrx:start-end
 * p - indicated that libary is paired end
 * o dir - where to put the data
-* f file - change filename to this prefix (suffix will be _Rx.fq.gz, with x in {1,2})
+* n file - change filename to this prefix (suffix will be _Rx.fastq.gz, with x in {1,2})
 "
 
 [ $# -lt 2 ] && echo "$USAGEMSG" >&2 && exit 1
@@ -64,18 +64,20 @@ else
 fi
 echo $n
 
-module load kevyin/java/1.7.0_25 gi/samtools/0.1.19 gi/picard-tools/1.91
+module load gi/java/jdk1.7.0_45 gi/samtools/0.1.19 gi/picard-tools/1.103
+
+[ ! -f $BAM.bai ] && samtools index $BAM
 
 if [ "$ISPAIRED" = "TRUE" ]; then
 	samtools view -b -f 2 $BAM $LOCATION > $OUTDIR/$n.bam
-        samtools index $OUTDIR/$n.bam
-	java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fq SECOND_END_FASTQ=$OUTDIR/${n}_R2.fq
-	gzip -9 $OUTDIR/${n}_R1.fq $OUTDIR/${n}_R2.fq
+    samtools index $OUTDIR/$n.bam
+	java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq SECOND_END_FASTQ=$OUTDIR/${n}_R2.fastq
+	gzip -9 $OUTDIR/${n}_R1.fastq $OUTDIR/${n}_R2.fastq
 
 else
-        samtools view -b $BAM $LOCATION > $OUTDIR/$n.bam
-        samtools index $OUTDIR/$n.bam
-        java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fq
-        gzip -9 $OUTDIR/${n}_R1.fq
+    samtools view -b $BAM $LOCATION > $OUTDIR/$n.bam
+    samtools index $OUTDIR/$n.bam
+    java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq
+    gzip -9 $OUTDIR/${n}_R1.fastq
 
 fi
