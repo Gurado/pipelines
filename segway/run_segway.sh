@@ -243,7 +243,7 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
     #echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgTrn0${EXPERIMENT}.out -N SgTrn-${EXPERIMENT} ${SEGWAY_BIN}//segtrain${EXPERIMENT}.sh"  >> ${SEGWAY_BIN}/4_train.sh
     echo "${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh" >> ${SEGWAY_BIN}/4_train.sh
     # make sure there is no douple // in any path as segway doesn't like that
-    sed -i 's|//|/|g' ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh
+    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh
     
     chmod 777  ${SEGWAY_BIN}/4_train.sh
 
@@ -260,24 +260,29 @@ if [ -n "$DO_PREDICTSEGWAY" ]; then
     echo "[ -f ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out" >> ${SEGWAY_BIN}/5_predict.sh
     echo "[ -d ${SEGWAY_PREDICT} ] && rm -r ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/5_predict.sh
 
-    echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
+    echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
 
-    echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
-    echo "segway --num-labels=${LABELS} ${CLOBBER} \\">> ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
+    echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    echo "segway --num-labels=${LABELS} ${CLOBBER} \\">> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
     # add the --track <ID> sections
-    for f in $(ls ${SEGWAY_DATA}/*.bg ); do
-        b=$(basename $f)
-        arrIN=(${b//./ })
-        echo "--track "${arrIN[0]}" \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
-    done
-    echo "identify ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN} ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
-    echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
-    chmod 777 ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
+	while IFS=$'\t' read -r -a DATA; do
+		REPNAMES=${DATA[0]}"_"${DATA[1]}
+        if [[ "${DATA[8]}" == "$PREDICTON" ]]; then
+            echo "[USE ] $REPNAMES"
+            echo "--track $REPNAMES \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    	else
+    	   echo "[SKIP] $REPNAMES"
+		fi
+    done < $EXPERIMENTS
+    
+    echo "identify ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN} ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    chmod 777 ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
     # submit
-#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out -N SgPrd-${EXPERIMENT} ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh"   
-    echo "${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh" >> ${SEGWAY_BIN}/5_predict.sh
+#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out -N SgPrd-${EXPERIMENT} ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh"   
+    echo "${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh" >> ${SEGWAY_BIN}/5_predict.sh
     # make sure there is no douple // in any path as segway doesn't like that
-    sed -i 's|//|/|g' ${SEGWAY_BIN}/segpredict${EXPERIMENT}.sh
+    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
 
     chmod 777 ${SEGWAY_BIN}/5_predict.sh
     

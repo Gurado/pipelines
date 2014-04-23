@@ -8,8 +8,7 @@ FILES_SOURCE=/Cancer-Epigenetics/Data/ClarkLab/Seq/ChIP-Seq/hg19/
 
 # data files 
 # tab separated file containing the following columns
-# Mark	Cellline	Folder	Replicates	Fragmentsizes	Wiggler_smooting
-# H3K4me1	LNCaP	Cancer-Epigenetics-Disco/ClarkLab/ChIP-Seq_Level_2/LNCaP/bowtie/	Ramaciotti20120417_LNCaP_H3K4me1,USC20130125_LNCaP_H3K4me1	.asd.bam	231,279	300
+# Mark	Cellline	Folder	Replicates	Fragmentsizes	Wiggler_smooting    TrainOn PredictOn
 EXPERIMENTS="experiments.txt"
 
 # experimental identifier
