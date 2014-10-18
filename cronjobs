@@ -1,0 +1,5 @@
+#!/bin/bash -e
+
+find /share/ClusterScratch/fabbus/ -exec touch {} \;
+find /share/Temp/fabbus -exec touch {} \;
+
