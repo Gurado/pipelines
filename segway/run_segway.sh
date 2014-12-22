@@ -7,7 +7,7 @@ Starts the segway pipeline given the config file
 Author: Fabian Buske
 
 Requirements (modules):
-	module fabbus/segway_gbr/1.1.0 
+	module fabbus/segway_gbr/1.2.0 
 	BEDtools (genomeCoverageBed) in path
 
 * CONFIGFILE - the config file describing the joba
@@ -80,7 +80,7 @@ SEGWAY_BIN=${TARGETDIR}/bin/
 SEGWAY_QOUT=${TARGETDIR}/qout/
 SEGWAY_RESULT=${TARGETDIR}/result_${LABELS}/
 SEGWAY_TRAIN=${SEGWAY_RESULT}/train-${EXPERIMENT}
-SEGWAY_PREDICT=${SEGWAY_RESULT}//predict-${EXPERIMENT}
+SEGWAY_PREDICT=${SEGWAY_RESULT}/predict-${EXPERIMENT}${PREDICTION}
 
 # some housekeeping
 mkdir -p $SEGWAY_DATA $SEGWAY_BIN $SEGWAY_QOUT $SEGWAY_RESULT
@@ -126,13 +126,12 @@ if [ -n "$DO_CONVERTDATA2BEDGRAPH" ]; then
 		exit 1
 	fi
 	
-	module load gi/bedtools gi/samtools fabbus/wiggler/2.0 module load gi/ucsc_utils
-	echo "module load gi/ucsc_utils gi/samtools fabbus/wiggler/2.0" > ${SEGWAY_BIN}/2_tdata.sh
-	echo "module load gi/pigz" > ${SEGWAY_BIN}/2_tdata.sh
+	module load gi/bedtools gi/samtools fabbus/wiggler/2.0 gi/ucsc_utils gi/pigz
+	echo "module load gi/bedtools gi/samtools fabbus/wiggler/2.0 gi/ucsc_utils gi/pigz" > ${SEGWAY_BIN}/2_tdata.sh
 #	echo "echo 'get chromosome sizes for ${GENOME}'" >> ${SEGWAY_BIN}/2_tdata.sh
 
 	while IFS=$'\t' read -r -a DATA; do
-       if [[ "${DATA[4]}" =~ ".bam" ]]; then
+        if [[ "${DATA[4]}" =~ ".bam" ]]; then
             FRAGMENTS=""
             INPUTS=""
             REPNAMES=""
@@ -154,18 +153,20 @@ if [ -n "$DO_CONVERTDATA2BEDGRAPH" ]; then
     		REPNAMES=${DATA[0]}"_"${DATA[1]}
             echo $REPNAMES
             
-        	if [ ! -f ${SEGWAY_DATA}${REPNAMES}.bg.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
+            if [ ! -f ${SEGWAY_DATA}${REPNAMES}.bg.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
                 [ -f ${SEGWAY_QOUT}TrDa-${REPNAMES}.out ] && rm ${SEGWAY_QOUT}TrDa-${REPNAMES}.out
+                [ -f ${SEGWAY_DATA}${REPNAMES}.bg.gz ] && rm ${SEGWAY_DATA}${REPNAMES}.bg.gz
                 echo '#!/bin/bash' > ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 echo "echo convert ${REPNAMES} to bedGraph using wiggler" >>  ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 # wiggler
                 
                 echo "align2rawsignal -of=bg ${INPUTS} ${FRAGMENTS} -s=${SEQDIR} -u=${WIGGLER_UMAP} -n=5 -v=${SEGWAY_QOUT}wiggler-${REPNAMES}.log -k=tukey -w=${DATA[6]} -o=${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh 
-		# apply asinh transformation to all signal values
-		echo "cat ${SEGWAY_DATA}${REPNAMES}.bg | awk 'function asinh(x){return log(x + sqrt(x*x +1))}{OFS=\"\\t\";print $1,$2,$3,asinh($4)}' | pigz -9 -c ${SEGWAY_DATA}${REPNAMES}.bg.gz " >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
-		echo "rm ${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
-
+##		 apply asinh transformation to all signal values (done via (--distribution=asinh_norm) by default
+#		echo "[ -f -c ${SEGWAY_DATA}${REPNAMES}.bg.gz ] && rm -c ${SEGWAY_DATA}${REPNAMES}.bg.gz" >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
+#		echo "cat ${SEGWAY_DATA}${REPNAMES}.bg | awk 'function asinh(x){return log(x + sqrt(x*x +1))}{OFS=\"\\t\";print \$1,\$2,\$3,asinh(\$4)}' | pigz -9 -c > ${SEGWAY_DATA}${REPNAMES}.bg.gz " >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
+#		echo "rm ${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
+		echo "pigz -9 ${SEGWAY_DATA}${REPNAMES}.bg" >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 chmod 777 ${SEGWAY_BIN}/tdata${REPNAMES}.sh
                 
@@ -178,7 +179,7 @@ if [ -n "$DO_CONVERTDATA2BEDGRAPH" ]; then
                 exit 1
             fi
 
-    		REPNAMES=${DATA[0]}"_"${DATA[1]}
+    	    REPNAMES=${DATA[0]}"_"${DATA[1]}
             echo $REPNAMES
         	if [ ! -f ${SEGWAY_DATA}${REPNAMES}.bg.gz ] || [ "$OVERWRITEALL" = "TRUE" ]; then
                 [ -f ${SEGWAY_QOUT}TrDa-${REPNAMES}.out ] && rm ${SEGWAY_QOUT}TrDa-${REPNAMES}.out
@@ -263,7 +264,9 @@ if [ -n "$DO_GENERATEARCHIVE" ]; then
        	        echo "[SKIP] $REPNAMES"
     	    fi
         done < $EXPERIMENTS
-
+        # add dinucleotide
+#        echo "-t dinucleotide \\" >> ${SEGWAY_BIN}/gdata${EXPERIMENT}${CHR}.sh
+        
     	echo "${SEGWAY_DATA}${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}/gdata${EXPERIMENT}${CHR}.sh
     	echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/gdata${EXPERIMENT}${CHR}.sh
     	chmod 777 ${SEGWAY_BIN}/gdata${EXPERIMENT}${CHR}.sh
@@ -293,7 +296,7 @@ if [ -n "$DO_TRAINSEGWAY" ]; then
         EXLCUDECOORDS="--exclude-coords=$EXCLUDABLE"
     fi
     
-    OPTIONS="--include-coords=$TRAIN_REGIONS --num-labels=${LABELS} $EXLCUDECOORDS $CLUSTEROPT --num-instances=${INSTANCES} ${CLOBBER} ${SEGWAY_TRAIN_ADDPARAM}"
+    OPTIONS="$MODEL_ADDPARAM --include-coords=$TRAIN_REGIONS --num-labels=${LABELS} $EXLCUDECOORDS $CLUSTEROPT --num-instances=${INSTANCES} ${CLOBBER} ${SEGWAY_TRAIN_ADDPARAM}"
     echo "echo '*** train segway'" >> ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh
     echo "segway $OPTIONS \\"> ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh 
     if [[ -n "$USE_ALL_TRACK_DATA" ]]; then
@@ -339,35 +342,42 @@ if [ -n "$DO_PREDICTSEGWAY" ]; then
     echo "[ -f ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out ] && rm ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out" >> ${SEGWAY_BIN}/5_predict.sh
     echo "[ -d ${SEGWAY_PREDICT} ] && rm -r ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/5_predict.sh
 
-    echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    echo 'echo job_id $JOB_ID startdata $(date)' > ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
 
-    echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    echo "echo '*** predict segmentation'" >>  ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
     if [ -n "$EXCLUDABLE" ]; then
         EXLCUDECOORDS="--exclude-coords=$EXCLUDABLE"
     fi
-    echo "segway --num-labels=${LABELS} $CLUSTEROPT $EXLCUDECOORDS ${CLOBBER} \\">> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    echo "segway $MODEL_ADDPARAM --num-labels=${LABELS} $CLUSTEROPT $EXLCUDECOORDS ${CLOBBER} \\">> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
     # add the --track <ID> sections
-
-	while IFS=$'\t' read -r -a DATA; do
-		REPNAMES=${DATA[0]}"_"${DATA[1]}
-        if [[ "${DATA[1]}" == "$TRAIN_EXPERIMENT" ]]; then
+    if [[ -n "$USE_ALL_TRACK_DATA" ]]; then
+        for e in $(cut -f 1 $EXPERIMENTS | sort -u); do
+            REPNAMES=$(fgrep -w "$e" $EXPERIMENTS | cut -f1,2 | sort -k1,2 | tr '\t' '_' | tr '\n' ',' | sed 's/,*$//g')
             echo "[USE ] $REPNAMES"
-            echo "--track=$REPNAMES \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+            echo "--track=$REPNAMES \\" >> ${SEGWAY_BIN}/segtrain${EXPERIMENT}.sh
+        done
+
+    else
+    while IFS=$'\t' read -r -a DATA; do
+	REPNAMES=${DATA[0]}"_"${DATA[1]}
+        if [[ "${DATA[1]}" == "$PREDICTION" ]]; then
+            echo "[USE ] $REPNAMES"
+            echo "--track=$REPNAMES \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
     	else
     	   echo "[SKIP] $REPNAMES"
-		fi
+	fi
     done < $EXPERIMENTS
-    
+    fi
     ## add dinucleotide
-#    echo "--track=dinucleotide \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
-    echo "identify ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN} ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
-    echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
-    chmod 777 ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+#    echo "--track=dinucleotide \\" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
+    echo "identify ${SEGWAY_DATA}${EXPERIMENT}.genomedata ${SEGWAY_TRAIN} ${SEGWAY_PREDICT}" >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
+    echo 'echo job_id $JOB_ID ending $(date)' >> ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
+    chmod 777 ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
     # submit
-#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out -N SgPrd-${EXPERIMENT} ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh"   
-    echo "${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh" >> ${SEGWAY_BIN}/5_predict.sh
+#       echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgPrd-${EXPERIMENT}.out -N SgPrd-${EXPERIMENT} ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh"   
+    echo "${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh" >> ${SEGWAY_BIN}/5_predict.sh
     # make sure there is no douple // in any path as segway doesn't like that
-    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTON}.sh
+    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segpredict${EXPERIMENT}${PREDICTION}.sh
 
     chmod 777 ${SEGWAY_BIN}/5_predict.sh
     
@@ -382,40 +392,48 @@ fi
 if [ -n "$DO_EVALUATE" ]; then
 
     echo "#!/bin/bash -e" > ${SEGWAY_BIN}/6_evaluate.sh
-    echo "module load fabbus/segway_gbr/1.1.0 gi/ucsc_utils/283" >> ${SEGWAY_BIN}/6_evaluate.sh
+    echo "module load fabbus/segway_gbr gi/ucsc_utils/283 gi/bedtools" >> ${SEGWAY_BIN}/6_evaluate.sh
 
-    echo "#!/bin/bash -e" > ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
+    for rf in  result_8/predict-Prostate/segway.[0-9].bed.gz; do 
+        COUNTER=$(echo $rf | sed 's/.*segway.\([0-9]\).bed.gz/\1/g')
+        echo $COUNTER
+
+    echo "#!/bin/bash -e" > ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     #preprocess file
-    if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ]; then
-        echo "echo '*** preprocess'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh     
-        echo "segtools-preprocess ${CLOBBER} ${SEGWAY_PREDICT}/segway.bed.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
+    if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ]; then
+        echo "echo '*** preprocess'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh     
+        echo "segtools-preprocess ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     fi
     
-    echo "echo '*** length disttribution analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "segtools-length-distribution ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}/length-dist/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
+    echo "echo '*** length disttribution analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-length-distribution ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}/length-dist$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
-    echo "echo '*** gene aggregation analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "segtools-aggregation ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}/gencode-agg/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
+    echo "echo '*** gene aggregation analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-aggregation ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}/gencode-agg$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
-    echo "echo '*** gmtk parameter generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}/params/params.params --outdir=${SEGWAY_RESULT}/gtmk-param/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
+    echo "echo '*** gmtk parameter generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}/params/params.params --outdir=${SEGWAY_RESULT}/gtmk-param$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
-    echo "echo '*** html report generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "cd ${SEGWAY_RESULT}/" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "segtools-html-report -L ${SEGWAY_PREDICT}/segway.layered.bed.gz --results-dir=${SEGWAY_RESULT}/ -o segtools.html ${SEGWAY_PREDICT}/segway.bed.gz.pkl.gz ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
-    echo "sed 's|${SEGWAY_RESULT}/||g' segtools.html > segtools.html2" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
-    echo "mv segtools.html2 segtools.html" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
-    echo "cd $(pwd)" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "zcat ${SEGWAY_PREDICT}/segway.bed.gz | tail -n +2 > ${SEGWAY_PREDICT}/segway.tmp" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
-    echo "bedToBigBed -type=bed9 ${SEGWAY_PREDICT}/segway.tmp $CHROMSIZES ${SEGWAY_PREDICT}/$EXPERIMENT.bb" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh 
+    echo "echo '*** html report generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "cd ${SEGWAY_RESULT}/" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-html-report -L ${SEGWAY_PREDICT}/segway.$COUNTER.layered.bed.gz --results-dir=${SEGWAY_RESULT}/ -o segtools$COUNTER.html ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "sed 's|${SEGWAY_RESULT}/||g' segtools$COUNTER.html > segtools$COUNTER.html2" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "mv segtools$COUNTER.html2 segtools$COUNTER.html" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "cd $(pwd)" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "for LABEL in \$(seq 0 $(( $LABELS - 1 )) ); do zcat ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz | tail -n+2 | awk -v label=\$LABEL '{if (\$4 == label){OFS=\"\t\"; print \$1,\$2,\$3,\$4}}' | bedtools sort >  ${SEGWAY_PREDICT}/segway.$COUNTER.\$LABEL.bed" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "bedToBigBed -type=bed4 ${SEGWAY_PREDICT}/segway.$COUNTER.\$LABEL.bed $CHROMSIZES ${SEGWAY_PREDICT}/$EXPERIMENT.$COUNTER.\$LABEL.bb" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "rm  ${SEGWAY_PREDICT}/segway.$COUNTER.\$LABEL.bed" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "done" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     # make sure there is no douple // in any path as segway doesn't like that
-    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
+    sed -i 's|//*|/|g' ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
  
-    chmod 777 ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh
+    chmod 777 ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     
-    echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgEva-${EXPERIMENT}.out -N SgEva-${EXPERIMENT} ${SEGWAY_BIN}/segeval${EXPERIMENT}.sh" >> ${SEGWAY_BIN}/6_evaluate.sh
+    echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgEva-${EXPERIMENT}$COUNTER.out -N SgEva-${EXPERIMENT}$COUNTER ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh" >> ${SEGWAY_BIN}/6_evaluate.sh
     
+    done
+
     chmod 777 ${SEGWAY_BIN}/6_evaluate.sh
     if [ $ARMED = "TRUE" ]; then
         ${SEGWAY_BIN}/6_evaluate.sh
