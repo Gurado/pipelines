@@ -18,20 +18,20 @@ Generate toy example fastq files by taking a mapped file (BAM) and returning the
 examples:
 ./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_CTCF_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescCtcfStdRawDataRep1.asd.bam chr16:27184646-27472388
 ./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq -n ChIPseq_H3k9me3_chr16 ~/research/integration/TFs/H1esc/bowtie/wgEncodeBroadHistoneH1hescH3k09me3StdRawDataRep1.asd.bam chr16:27184646-27472388
-./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq_input -n ChIPseq_Input_chr16 ~/research/integration/TFs/H1esc_control/bowtie/wgEncodeBroadHistoneH1hescControlStdRawData.asd.bam chr16:27184646-27472388
+./extractRegionFromBam.sh -o ~/research/Sandbox_ngd1/fastq/ChIPseq_input -n ChIPseq_Input_chr16 ~/research/integration/TFs/H1esc_control/bowtie/wgEncodeBroadHistoneH1hescControlStdRawData.asd.bam chr16:20000000-50000000
 
 HiC assuming merged bam and properly sets flag
-~/extractRegionFromBam.sh -h -o ~/tmp ~/tmp/GMall_Ncol_uniques.bam chr16:27184646-27472388
+~/extractRegionFromBam.sh -1 R1 -2 R2 -p -o ~/tmp/ -n GMall_Ncol GMall_Ncol_uniques.bam chr16:20000000-30000000
 
 Author: Fabian Buske
 Version: $VERSION
 
 * BAM - the bam file
 * LOCATION - chr location in the form chrx:start-end
-* p - indicates that libary is paired end
-* h - indicates that library is hic
 * 1 - read one identifier
 * 2 - read 2 identifier
+* p - indicates that libary is paired end
+* i - include read pairs where the mate mapped outside the region of interest (otherwise the readpair is removed
 * o dir - where to put the data
 * n file - change filename to this prefix (suffix will be _Rx.fastq.gz, with x in {1,2})
 "
@@ -41,8 +41,9 @@ ISPAIRED="FALSE"
 OUTDIR=
 FILENAME=
 LIBRARY="SINGLE"
+OUTSITEMAPPINGMATES="EXCLUDE"
 
-while getopts "1:2:o:n:phv" opt;
+while getopts "1:2:o:n:ipv" opt;
 do
 	case ${opt} in
         1) READ1="$OPTARG";;
@@ -50,7 +51,7 @@ do
         o) OUTDIR="$OPTARG";;
         n) FILENAME="$OPTARG";;
         p) LIBRARY="PAIRED";;
-        h) LIBRARY="HIC";;
+        i) OUTSITEMAPPINGMATES="INCLUDE";;
         v) VERBOSE="--verbose";;
         \?) print >&2 "$0: error - unrecognized option $1"
         exit 1;;
@@ -74,40 +75,45 @@ else
 fi
 echo $n
 
-module load gi/java/jdk1.7.0_45 gi/samtools/0.1.19 gi/picard-tools/1.103
+module load gi/java/jdk1.7.0_45 gi/samtools/0.1.19 gi/picard-tools/1.103 gi/pigz/2.3
 
-[ ! -f $BAM.bai ] && samtools index $BAM
 if [ "$LIBRARY" = "PAIRED" ]; then
-	samtools view -b -f 2 $BAM $LOCATION > $OUTDIR/$n.bam
-    samtools index $OUTDIR/$n.bam
-	java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq SECOND_END_FASTQ=$OUTDIR/${n}_R2.fastq
-	gzip -9 $OUTDIR/${n}_R1.fastq $OUTDIR/${n}_R2.fastq
-
-elif [ "$LIBRARY" = "HIC" ]; then
     # sort by coordinates
-    samtools sort $BAM $BAM.coord_sorted
-    samtools index $BAM.coord_sorted.bam
-    
-    # get read ids for region of interest
-    samtools view -f 2 $BAM.coord_sorted.bam $LOCATION | cut -f 1 | sort -u | awk -F'.' '{OFS="\t";print $1,$2}' | sort -k1,1 -k2,2g | awk '{OFS=".";print $1,$2}' | less > $OUTDIR/fastqIDs.txt
-    
-    # resort with read name
-    java -Xmx5g -jar $(which SortSam.jar) INPUT=$BAM.bam OUTPUT=$BAM.name_sorted.bam SORT_ORDER=queryname
+    samtools sort $BAM $OUTDIR/$n.coord_sorted
+    samtools index $OUTDIR/$n.coord_sorted.bam
 
-    # filter reads    
-    java -Xmx5g -jar $(which FilterSamReads.jar) INPUT=$BAM.name_sorted.bam FILTER=includeReadList READ_LIST_FILE=$OUTDIR/fastqIDs.txt OUTPUT=$OUTDIR/$BAM.filtered.bam
+    if [ "$OUTSITEMAPPINGMATES" == "INCLUDE" ]; then
+        # get read ids for region of interest
+        samtools view -f 3 $OUTDIR/$n.coord_sorted.bam $LOCATION | cut -f 1 | sort -u | awk -F'.' '{OFS="\t";print $1,$2}' | sort -k1,1 -k2,2g | awk '{OFS=".";print $1,$2}' | less > $OUTDIR/fastqIDs.txt
+        
+        # resort with read name
+        java -Xmx30g -jar $(which SortSam.jar) INPUT=$BAM.bam OUTPUT=$BAM.name_sorted.bam SORT_ORDER=queryname
+    
+        # filter reads    
+        java -Xmx30g -jar $(which FilterSamReads.jar) INPUT=$BAM.name_sorted.bam FILTER=includeReadList READ_LIST_FILE=$OUTDIR/fastqIDs.txt OUTPUT=$OUTDIR/$BAM.filtered.bam
+    
+        # get fastq
+        java -Xmx30g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$BAM.filtered.bam FASTQ=${n}_R1.fastq SECOND_END_FASTQ=${n}_R2.fastq
+    
+        #cleanup
+        rm $BAM.name_sorted.bam
 
-    # get fastq
-    java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$BAM.filtered.bam FASTQ=${n}_R1.fastq SECOND_END_FASTQ=${n}_R2.fastq
-    gzip -9 ${n}_R1.fastq ${n}_R2.fastq
-    
-    #cleanup
-    rm $BAM.coord_sorted.bam* $BAM.name_sorted.bam
-    
+    else
+        samtools view -b -f 3 $OUTDIR/$n.coord_sorted.bam $LOCATION > $OUTDIR/$n.bam
+        samtools index $OUTDIR/$n.bam
+        java -Xmx30g -jar $(which SamToFastq.jar) VALIDATION_STRINGENCY=LENIENT INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq SECOND_END_FASTQ=$OUTDIR/${n}_R2.fastq
+	rm $OUTDIR/$n.bam $OUTDIR/$n.bam.bai
+    fi    
+
+    # zip
+    pigz -11 $OUTDIR/${n}_R1.fastq $OUTDIR/${n}_R2.fastq
+
+    rm $OUTDIR/$n.coord_sorted.bam $OUTDIR/$n.coord_sorted.bam.bai 
+
 else
     samtools view -b $BAM $LOCATION > $OUTDIR/$n.bam
     samtools index $OUTDIR/$n.bam
-    java -Xmx5g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq
+    java -Xmx30g -jar $(which SamToFastq.jar) INPUT=$OUTDIR/$n.bam FASTQ=$OUTDIR/${n}_R1.fastq
     gzip -9 $OUTDIR/${n}_R1.fastq
 
 fi
