@@ -7,8 +7,10 @@ Starts the segway pipeline given the config file
 Author: Fabian Buske
 
 Requirements (modules):
-	module fabbus/segway_gbr/1.2.0 
+	gi/gcc/4.8.2
+	fabbus/segway_gbr/1.2.0 
 	BEDtools (genomeCoverageBed) in path
+	Samtools gi/samtools
 
 * CONFIGFILE - the config file describing the joba
 * -1 step 1 - collect the bam data from gagri
@@ -392,13 +394,15 @@ fi
 if [ -n "$DO_EVALUATE" ]; then
 
     echo "#!/bin/bash -e" > ${SEGWAY_BIN}/6_evaluate.sh
+    echo "unset module"
     echo "module load fabbus/segway_gbr gi/ucsc_utils/283 gi/bedtools" >> ${SEGWAY_BIN}/6_evaluate.sh
 
-    for rf in  result_8/predict-Prostate/segway.[0-9].bed.gz; do 
+    for rf in ${SEGWAY_PREDICT}/segway.[0-9].bed.gz; do 
         COUNTER=$(echo $rf | sed 's/.*segway.\([0-9]\).bed.gz/\1/g')
         echo $COUNTER
 
     echo "#!/bin/bash -e" > ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "unset module" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     #preprocess file
     if [ -n $OVERWRITEALL ] || [ ! -f ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ]; then
@@ -430,7 +434,7 @@ if [ -n "$DO_EVALUATE" ]; then
  
     chmod 777 ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     
-    echo "qsub -l mem_requested=16G -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgEva-${EXPERIMENT}$COUNTER.out -N SgEva-${EXPERIMENT}$COUNTER ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh" >> ${SEGWAY_BIN}/6_evaluate.sh
+    echo "qsub -l mem_requested=16G -S /bin/bash -V -cwd -b y -j y -o ${SEGWAY_QOUT}SgEva-${EXPERIMENT}$COUNTER.out -N SgEva-${EXPERIMENT}$COUNTER ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh" >> ${SEGWAY_BIN}/6_evaluate.sh
     
     done
 
