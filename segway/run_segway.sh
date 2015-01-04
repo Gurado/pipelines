@@ -395,7 +395,7 @@ if [ -n "$DO_EVALUATE" ]; then
 
     echo "#!/bin/bash -e" > ${SEGWAY_BIN}/6_evaluate.sh
     echo "unset module"
-    echo "module load fabbus/segway_gbr gi/ucsc_utils/283 gi/bedtools" >> ${SEGWAY_BIN}/6_evaluate.sh
+    echo "module load fabbus/segway_gbr gi/ucsc_utils/283 gi/bedtools fabbus/R" >> ${SEGWAY_BIN}/6_evaluate.sh
 
     for rf in ${SEGWAY_PREDICT}/segway.[0-9].bed.gz; do 
         COUNTER=$(echo $rf | sed 's/.*segway.\([0-9]\).bed.gz/\1/g')
