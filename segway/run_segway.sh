@@ -411,13 +411,20 @@ if [ -n "$DO_EVALUATE" ]; then
     fi
     
     echo "echo '*** length disttribution analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
-    echo "segtools-length-distribution ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz --outdir=${SEGWAY_RESULT}/length-dist$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "segtools-length-distribution --outdir=${SEGWAY_RESULT}/length-dist$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
+    echo "echo '*** nucleotide frequency analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-nucleotide-frequency --outdir=${SEGWAY_RESULT}/nucleotide_freg$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${SEGWAY_DATA}${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+
+    echo "echo '*** transition analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-transition --outdir=${SEGWAY_RESULT}/transition$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+
+
     echo "echo '*** gene aggregation analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
-    echo "segtools-aggregation ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${ANNOTATION} --normalize --mode=gene --outdir=${SEGWAY_RESULT}/gencode-agg$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "segtools-aggregation  --normalize --mode=gene --outdir=${SEGWAY_RESULT}/gencode-agg$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${ANNOTATION}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
     echo "echo '*** gmtk parameter generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
-    echo "segtools-gmtk-parameters ${SEGWAY_TRAIN}/params/params.params --outdir=${SEGWAY_RESULT}/gtmk-param$COUNTER/ ${CLOBBER}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "segtools-gmtk-parameters --outdir=${SEGWAY_RESULT}/gtmk-param$COUNTER/ ${CLOBBER} ${SEGWAY_TRAIN}/params/params.params" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
     echo "echo '*** html report generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "cd ${SEGWAY_RESULT}/" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
