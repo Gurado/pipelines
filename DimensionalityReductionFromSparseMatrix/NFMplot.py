@@ -1,19 +1,29 @@
 #!/bin/python
 ######################################
-# calculate using sklearn TruncatedSVD
+# calculate using sklearn NMF
 #
 # Author: Fabian Buske (13/01/2015)
 ######################################
 
 from scipy.sparse import lil_matrix
+from scipy.sparse import coo_matrix
 from scipy.sparse import csr_matrix
 import numpy
 import regex, os, sys, errno, re
 import argparse
-from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import NMF
 import fileinput
 import datetime
-import gzip
+import gzip, itertools
+import matplotlib 
+from time import time
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+pp = PdfPages('multipage.pdf')
+
 
 ######################################
 # Timestamp
@@ -26,7 +36,8 @@ def createFragmentResolution():
 	''' 
 	creates one interval tree for quick lookups
 	returns 
-	    fragmentsLookupTable[fragmentId] = [tuple(chrom, fragmentMidPoint)]
+	    positionLookupTable[tuple(chrom, fragmentMidPoint)] = [fragmentCount]
+		fragmentsLookupTable[fragmentId] = [tuple(chrom, fragmentMidPoint)]
 	'''
 
 	if (args.verbose):
@@ -34,6 +45,7 @@ def createFragmentResolution():
 
 	fragmentsCount = 0
 	fragmentsLookupTable = {}
+	positionLookupTable = {}
 	 
 	for line in fileinput.input([args.chromSizes]):
 		chrom=line.split("\t")[0]
@@ -48,17 +60,18 @@ def createFragmentResolution():
 		for i in range(0, chromlen, args.resolution):
 			start=i
 			end=min(i+ args.resolution, chromlen)
-			fragmentsLookupTable[tuple([chrom, int(0.5*(start+end))])] = fragmentsCount
+			positionLookupTable[tuple([chrom, int(0.5*(start+end))])] = fragmentsCount
+			fragmentsLookupTable[fragmentsCount] = tuple([chrom, int(0.5*(start+end))])
 			fragmentsCount += 1
 	
 	if (args.verbose):
 		print >> sys.stdout, "- %s FINISH  : counted %d fragments" % (timeStamp(), fragmentsCount)
 
-	return [ fragmentsLookupTable, fragmentsCount ]
+	return [ positionLookupTable, fragmentsLookupTable, fragmentsCount ]
 
-def readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount):
+def readFileIntoSparseMatrix(positionLookupTable, fragmentsCount):
 
-	A = lil_matrix((len(args.contactsCountMatrices), fragmentsCount * fragmentsCount), dtype='i')
+	A = lil_matrix((len(args.contactsCountMatrices), fragmentsCount * fragmentsCount), dtype='f')
 	c = 0 
 	S = []
 	for contactCountsFile in args.contactsCountMatrices:
@@ -76,7 +89,7 @@ def readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount):
 
 		for line in infile:
 			ch1,mid1,ch2,mid2,contactCounts,pvalue,qvalue,bias1,bias2,biasCorrectedContactCount=line.split()
-			
+
 			try:
 				if (float(qvalue) > args.threshold):
 					continue
@@ -85,62 +98,112 @@ def readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount):
 				continue
 
 			if (args.metric =="pvalue"):
-				if (float(pvalue)==0):
-					metric=1
-				else:
-					metric=numpy.log10(float(pvalue))
+				metric=1.-(float(pvalue))
+
 			elif (args.metric == "qvalue"):
-				if (float(qvalue)==0):
-					metric=1
-				else:
-					metric=numpy.log10(float(qvalue))
+				metric=1.-(float(qvalue))
 			else:
-				metric=float(biasCorrectedContactCount)
+				metric=numpy.arcsinh(float(biasCorrectedContactCount))
 			
 			# skip irrelevant entries
-			if (metric == 0):
+			if (metric == 0.):
 				continue
 
 			# skip trand counts if requested
 			if (args.cis and ch1 != ch2):
 				continue
 			
+			if (ch1 == ch2 and mid1 == mid2 and not args.keepdiagonal):
+				continue
+
 			fragment1 = tuple([ch1,int(mid1)])
 			fragment2 = tuple([ch2,int(mid2)])
 
 
-			if (not fragmentsLookupTable.has_key(fragment1) or not fragmentsLookupTable.has_key(fragment2)):
+			if (not positionLookupTable.has_key(fragment1) or not positionLookupTable.has_key(fragment2)):
 				if (args.veryverbose):
 					print "[NOTE] fragment %s or %s not detected in map, is the correct resolution specified?" % (ch1,ch2)
 				continue
 
 			# keep this symmetric matrix as sparse as possible by just filling in the top triangle
 			if (fragment1 < fragment2):
-				A[c, fragmentsLookupTable[fragment1] * fragmentsCount + fragmentsLookupTable[fragment2]] = metric
+				A[c, positionLookupTable[fragment1] * fragmentsCount + positionLookupTable[fragment2]] = metric
 			else:
-				A[c, fragmentsLookupTable[fragment2] * fragmentsCount +  fragmentsLookupTable[fragment1]] = metric
+				A[c, positionLookupTable[fragment2] * fragmentsCount +  positionLookupTable[fragment1]] =  metric
 
 		c += 1 
 
 		if (args.verbose):
 			print >> sys.stdout, "- %s FINISH  : reading file" % (timeStamp())
-
+			
 	return (S,A.tocsr())
 
-def explainVariance(M):
+	# # TODO Normalize columns to 1
+	# if (args.verbose):
+	# 	print >> sys.stdout, "- %s START   : normalize to frequencies" % (timeStamp())
+
+	# # print A
+	# colsum = A.sum(axis=1)
+
+	# A = A.tocoo()
+	
+	# W = lil_matrix((len(args.contactsCountMatrices), fragmentsCount * fragmentsCount), dtype='f')
+	# for i,j,v in itertools.izip(A.row, A.col, A.data):
+	# 	W[i,j] = float(v)/colsum[i]
+
+	# if (args.verbose):
+	# 	print >> sys.stdout, "- %s FINISH  : normalize to frequencies" % (timeStamp())
+
+	# return (S,W.tocsr())
+
+def performNMF(M, fragmentsLookupTable, fragmentsCount):
 
 	if (args.verbose):
-		print >> sys.stdout, "- %s START   : calculating SVD" % (timeStamp())
+		print >> sys.stdout, "- %s START   : calculating NMF" % (timeStamp())
 
-	svd = TruncatedSVD(n_components=3, random_state=42)
-	svd.fit(M)
-	N = svd.transform(M)
+	t0 = time()	
+	model = NMF(n_components=args.components, init='nndsvd', beta=10000.0, max_iter=1000, tol=5e-3, sparseness='components')
+	model.fit(M)
+	train_time = (time() - t0)
+	components_ = model.components_
+
+	# print >> sys.stdout, components_
+	N = model.transform(M)
+
 	if (args.verbose):
-		print >> sys.stdout, "- %s FINISH  : calculating SVD" % (timeStamp())
+		print >> sys.stdout, "- %s FINISH  : calculating NMF" % (timeStamp())
 
-	return (N,svd.explained_variance_ratio_,svd.explained_variance_ratio_.sum())
+	if (args.verbose):
+		print >> sys.stdout, "- %s START   : mapping components" % (timeStamp())
 
-def plotVariance(S, N, explainedRatio, totalExplained):
+	# convert components into locations
+	for i in xrange(args.components):
+		output = gzip.open(args.outdir+"/NMF_component_"+str(i)+".txt.gz", 'wb')
+		if (args.verbose):
+			print >> sys.stdout, "-            : processing component %d" % (i)
+
+	 	try:
+
+			for j in xrange(model.components_[i].shape[0]):
+					# print >> sys.stdout, model.components_[i]
+					# print >> sys.stdout, "Max value %f" (numpy.max(model.components_[i]))
+				# if (model.components_[i][j] != 0):
+					fragment1 = j / fragmentsCount
+					fragment2 = j % fragmentsCount
+					
+					(chr1, midpoint1) = fragmentsLookupTable[fragment1]
+					(chr2, midpoint2) = fragmentsLookupTable[fragment2]
+					output.write("%s\t%i\t%s\t%i\t%f\n" % (chr1, midpoint1, chr2, midpoint2, model.components_[i][j]))
+
+		finally:
+				output.close()
+
+	if (args.verbose):
+		print >> sys.stdout, "- %s FINISH  : mapping components" % (timeStamp())
+
+	return (N,model)
+
+def plotVariance(S, N):
 
 	f = open(args.outdir+'/'+args.imagename+".R","w")
 	x = ["%.2f" % number for number in numpy.transpose(N)[0]]
@@ -191,23 +254,44 @@ def plotVariance(S, N, explainedRatio, totalExplained):
 
 	f.close()
 
+def plot_gallery(title, images, image_shape, n_col=2, n_row=1):
+	if (args.verbose):
+		print >> sys.stdout, "- %s START   : plotting figure %s" % (timeStamp(), title)
+
+	plt.figure(figsize=(20. * n_col, 25.2 * n_row))
+	plt.suptitle(title, size=16)
+	for i, comp in enumerate(images):
+		plt.subplot(n_row, n_col, i + 1)
+		vmax = max(comp.max(), -comp.min())
+		plt.imshow(comp.reshape(image_shape), cmap=plt.cm.gray, interpolation='nearest', vmin=-vmax, vmax=vmax)
+		plt.xticks(())
+		plt.yticks(())
+	plt.subplots_adjust(0.01, 0.05, 0.99, 0.93, 0.04, 0.)
+
+	if (args.verbose):
+		print >> sys.stdout, "- %s FINISH  : plotting figure " % (timeStamp())
+
+
 def main():
 	''' main method 
 	    parsing the parameters and options
 	'''
 	global args
-	parser = argparse.ArgumentParser(description='Reads a list of significant interaction sparse matrix files and performs TruncatedSVD')
+	parser = argparse.ArgumentParser(description='Reads a list of significant interaction sparse matrix files and performs NMF')
 	parser.add_argument('chromSizes', type=str, help='chomosome sizes')
 	parser.add_argument('contactsCountMatrices', metavar="contactsCountMatrices", type=str, nargs='+', help='sparse interaction matrices')
 	parser.add_argument("-o", '--outdir', dest='outdir', type=str, default="./",
 						help='output location')
 	parser.add_argument("-r", "--resolution", type=int, dest="resolution", default=1000000, 
 						help="size of a fragment in bp if no genomeFragmentFile is given")
+	parser.add_argument("-n", "--components", type=int, dest="components", default=2, 
+						help="number of components used in NMF, default=2")
 	parser.add_argument("-C", "--chrompattern", type=str, dest="chromPattern", default="", 
 						help="pattern of chromosomes to filter for [default all]")
-	parser.add_argument("-t", "--threshold", type=float, dest="threshold", default=0.01, 
-						help="q-value threshold used to filter data [default 0.05]")
+	parser.add_argument("-t", "--threshold", type=float, dest="threshold", default=1.0, 
+						help="q-value threshold used to filter data [default 1.0]")
 	parser.add_argument("--cis", action="store_true", help="consider cis interactions only [default all]")
+	parser.add_argument("--keepdiagonal", action="store_true", help="also consider entries on diagonal [default remove diagnoal]")
 	parser.add_argument("-p", "--plotGraphic", type=str, dest="imagename", default="", 
 						help="create a 2D plot with the samples")
 
@@ -219,6 +303,7 @@ def main():
 						help="restriction enzymes used in matrices, supplied via comma-separated list, e.g. HindIII,NcoI,HindIII,NcoI")
 	parser.add_argument("-m", "--metric", type=str, dest="metric", default="biasCorrectedContactCount", 
 						help="on of the following: pvalue, qvalue, biasCorrectedContactCount")
+
 	parser.add_argument("--verbose", action="store_true")
 	parser.add_argument("--veryverbose", action="store_true")
 
@@ -240,15 +325,25 @@ def main():
 		parser.error("[ERROR] chromSizes not given or not existing, was :"+str(args.chromSizes))
 		sys.exit(1)
 
-	[ fragmentsLookupTable, fragmentsCount ] = createFragmentResolution()
+	[ positionLookupTable, fragmentsLookupTable, fragmentsCount ] = createFragmentResolution()
 
 
-	(S, A) = readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount)
+	(S, A) = readFileIntoSparseMatrix(positionLookupTable, fragmentsCount)
 
-	(N, explainedRatio, totalExplained) = explainVariance(A)
+	image_shape=(fragmentsCount,fragmentsCount)
+	
+	plot_gallery("Default", A.todense()[:len(args.contactsCountMatrices)], image_shape,  n_col=len(args.contactsCountMatrices), n_row=1)
+	plt.savefig(pp, format='pdf')
 
-	if (args.imagename != ""):
-		plotVariance(S, N, explainedRatio, totalExplained)
+	(N, model) = performNMF(A, fragmentsLookupTable, fragmentsCount)
+
+	plot_gallery("First chromosomes", model.components_[:args.components], image_shape,  n_col=args.components, n_row=1)
+	
+	plt.savefig(pp, format='pdf')
+	pp.close()
+
+	# if (args.imagename != ""):
+	# 	plotVariance(S, N, explainedRatio, totalExplained)
 
 if __name__ == "__main__":
 		main()
