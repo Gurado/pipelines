@@ -8,7 +8,7 @@ Author: Fabian Buske
 
 Requirements (modules):
 	gi/gcc/4.8.2
-	fabbus/segway_gbr/1.2.0 
+	fabbus/segway_gbr/1.2.0 (with segtools 1.1.7) 
 	BEDtools (genomeCoverageBed) in path
 	Samtools gi/samtools
 
@@ -89,7 +89,7 @@ mkdir -p $SEGWAY_DATA $SEGWAY_BIN $SEGWAY_QOUT $SEGWAY_RESULT
 cp ${REGIONS} ${SEGWAY_DATA}
 TRAIN_REGIONS=${SEGWAY_DATA}$(basename ${REGIONS})
 
-module load gi/ucsc_utils fabbus/segway_gbr/ gi/samtools
+module load gi/ucsc_utils fabbus/segway_gbr gi/samtools
 ##
 ## collect the data (tracks) from gagri
 ##
@@ -401,7 +401,7 @@ if [ -n "$DO_EVALUATE" ]; then
         COUNTER=$(echo $rf | sed 's/.*segway.\([0-9]\).bed.gz/\1/g')
         echo $COUNTER
 
-    echo "#!/bin/bash -e" > ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "#!/bin/bash" > ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "unset module" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo 'echo job_id $JOB_ID startdata $(date)' >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     #preprocess file
@@ -412,19 +412,21 @@ if [ -n "$DO_EVALUATE" ]; then
     
     echo "echo '*** length disttribution analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "segtools-length-distribution --outdir=${SEGWAY_RESULT}/length-dist$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
-    
+
+    echo "echo '*** signal distribution analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+    echo "segtools-signal-distribution --noplot --quiet --outdir=${SEGWAY_RESULT}/signal-dist$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${SEGWAY_DATA}${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
+ 
     echo "echo '*** nucleotide frequency analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "segtools-nucleotide-frequency --outdir=${SEGWAY_RESULT}/nucleotide_freg$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${SEGWAY_DATA}${EXPERIMENT}.genomedata" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
 
     echo "echo '*** transition analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "segtools-transition --outdir=${SEGWAY_RESULT}/transition$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
 
-
     echo "echo '*** gene aggregation analysis'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "segtools-aggregation  --normalize --mode=gene --outdir=${SEGWAY_RESULT}/gencode-agg$COUNTER/ ${CLOBBER} ${SEGWAY_PREDICT}/segway.$COUNTER.bed.gz.pkl.gz ${ANNOTATION}" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
     echo "echo '*** gmtk parameter generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
-    echo "segtools-gmtk-parameters --outdir=${SEGWAY_RESULT}/gtmk-param$COUNTER/ ${CLOBBER} ${SEGWAY_TRAIN}/params/params.params" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
+    echo "segtools-gmtk-parameters --noplot --quiet --outdir=${SEGWAY_RESULT}/gtmk-param$COUNTER/ ${CLOBBER} ${SEGWAY_TRAIN}/params/params.params" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh 
     
     echo "echo '*** html report generation'" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
     echo "cd ${SEGWAY_RESULT}/" >> ${SEGWAY_BIN}/segeval${EXPERIMENT}$COUNTER.sh
