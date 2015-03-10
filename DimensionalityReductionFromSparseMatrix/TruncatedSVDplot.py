@@ -75,7 +75,8 @@ def readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount):
 
 
 		for line in infile:
-			ch1,mid1,ch2,mid2,contactCounts,pvalue,qvalue,bias1,bias2,biasCorrectedContactCount=line.split()
+			l = line.split()
+			ch1,mid1,ch2,mid2,metric,qvalue = [l[0],int(l[1]),l[2],int(l[3]),float(4),float(5)]
 			
 			try:
 				if (float(qvalue) > args.threshold):
@@ -84,19 +85,6 @@ def readFileIntoSparseMatrix(fragmentsLookupTable, fragmentsCount):
 				# probably the header line
 				continue
 
-			if (args.metric =="pvalue"):
-				if (float(pvalue)==0):
-					metric=1
-				else:
-					metric=numpy.log10(float(pvalue))
-			elif (args.metric == "qvalue"):
-				if (float(qvalue)==0):
-					metric=1
-				else:
-					metric=numpy.log10(float(qvalue))
-			else:
-				metric=float(biasCorrectedContactCount)
-			
 			# skip irrelevant entries
 			if (metric == 0):
 				continue
@@ -139,6 +127,33 @@ def explainVariance(M):
 		print >> sys.stdout, "- %s FINISH  : calculating SVD" % (timeStamp())
 
 	return (N,svd.explained_variance_ratio_,svd.explained_variance_ratio_.sum())
+
+
+def plotVariance(S, N, explainedRatio, totalExplained):
+
+	x = ["%.2f" % number for number in numpy.transpose(N)[0]]
+	y = ["%.2f" % number for number in numpy.transpose(N)[1]]
+	z = ["%.2f" % number for number in numpy.transpose(N)[2]]
+	l = [args.labels.split(",")]
+
+	jo = open("+args.outdir+'/'+args.prefix+".json',"w")
+
+	jo.write("""{
+		explained : {
+			x : %.2f,
+			y : %.2f,
+			z : %.2f
+		},
+		experiments : { """ % (explainedRatio[0]*100, explainedRatio[1]*100, explainedRatio[2]*100))
+	
+	arr = []
+	for i in range(length(l)):
+		arr += [('"prefix" : "%s", x: %.2f, y: %.2f,z: %.2f ' % (l[i],x[i],y[i],z[i]))] 
+	jo.write(",\n".join(arr))
+	jo.write("""
+		}
+}	
+	""")
 
 def plotVariance(S, N, explainedRatio, totalExplained):
 
@@ -184,7 +199,7 @@ def plotVariance(S, N, explainedRatio, totalExplained):
 	f.write(" + ylim(c(min(data$z)-0.1*(max(data$z)-min(data$z)),max(data$z)+0.1*(max(data$z)-min(data$z))))")
 	f.write("\n")
 
-	f.write("pdf('"+args.outdir+'/'+args.imagename+".pdf', width=10, height=8)\n")
+	f.write("pdf('"+args.outdir+'/'+args.prefix+".pdf', width=10, height=8)\n")
 	f.write("g1\n")
 	f.write("g2\n")
 	f.write("dev.off()\n")
@@ -201,6 +216,8 @@ def main():
 	parser.add_argument('contactsCountMatrices', metavar="contactsCountMatrices", type=str, nargs='+', help='sparse interaction matrices')
 	parser.add_argument("-o", '--outdir', dest='outdir', type=str, default="./",
 						help='output location')
+	parser.add_argument("-O", '--prefix', dest='prefix', type=str, default="truncatedSVD",
+						help='prefix of the output files')
 	parser.add_argument("-r", "--resolution", type=int, dest="resolution", default=1000000, 
 						help="size of a fragment in bp if no genomeFragmentFile is given")
 	parser.add_argument("-C", "--chrompattern", type=str, dest="chromPattern", default="", 
@@ -208,17 +225,14 @@ def main():
 	parser.add_argument("-t", "--threshold", type=float, dest="threshold", default=0.01, 
 						help="q-value threshold used to filter data [default 0.05]")
 	parser.add_argument("--cis", action="store_true", help="consider cis interactions only [default all]")
-	parser.add_argument("-p", "--plotGraphic", type=str, dest="imagename", default="", 
-						help="create a 2D plot with the samples")
-
+	
 	parser.add_argument("-g", "--groups", type=str, dest="groups", default="", 
 						help="group list of count matrices via comma-separated list, e.g. 1,1,3,4")
 	parser.add_argument("-l", "--labels", type=str, dest="labels", default="", 
 						help="text labels for experiments used in plots, supplied via comma-separated list, e.g. PrEC_I,PrEC_II,LNCaP_I,LNCaP_II")
 	parser.add_argument("-c", "--cutter", type=str, dest="cutter", default="", 
 						help="restriction enzymes used in matrices, supplied via comma-separated list, e.g. HindIII,NcoI,HindIII,NcoI")
-	parser.add_argument("-m", "--metric", type=str, dest="metric", default="biasCorrectedContactCount", 
-						help="on of the following: pvalue, qvalue, biasCorrectedContactCount")
+	parser.add_argument("--plot", action="store_true")
 	parser.add_argument("--verbose", action="store_true")
 	parser.add_argument("--veryverbose", action="store_true")
 
@@ -247,7 +261,9 @@ def main():
 
 	(N, explainedRatio, totalExplained) = explainVariance(A)
 
-	if (args.imagename != ""):
+	outputJSON(S, N, explainedRatio, totalExplained)
+
+	if (args.plot):
 		plotVariance(S, N, explainedRatio, totalExplained)
 
 if __name__ == "__main__":
